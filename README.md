@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # OFFMUTE
 
 > **Work has a filter. Here, you can let it out.**
@@ -169,3 +170,6 @@ src/components/            # design system, layout, post card, composer
 src/pages/                 # route pages (lazy-loaded)
 src/lib/__tests__/         # vitest unit tests
 ```
+=======
+# Offmute
+>>>>>>> 864453dfd4d26f67e4530f0c9c3552d87685c5c9
