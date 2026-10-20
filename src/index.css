@@ -3,58 +3,35 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f2f3f9;
+  --bg: #f4f4f5;
   --surface: #ffffff;
-  --raise: #e9ebf4;
-  --line: #d9dcea;
-  --ink: #171b28;
-  --mute: #5c6479;
-  --brand: #6a5ae0;
-  --brand-soft: rgba(106, 90, 224, 0.12);
-  --coral: #f4593f;
-  --coral-soft: rgba(244, 89, 63, 0.12);
-  --ok: #17926a;
-  --warn: #b3790a;
-  --bad: #d43e5c;
-  --glow1: rgba(106, 90, 224, 0.14);
-  --glow2: rgba(244, 89, 63, 0.1);
+  --raise: #e4e4e7;
+  --line: #d4d4d8;
+  --ink: #09090b;
+  --mute: #52525b;
+  --brand: #2563eb;
+  --brand-soft: rgba(37, 99, 235, 0.1);
+  --coral: #db2777;
+  --coral-soft: rgba(219, 39, 119, 0.1);
+  --ok: #16a34a;
+  --warn: #ca8a04;
+  --bad: #dc2626;
 }
 
-.dark {
-  --bg: #0b0e16;
-  --surface: #121623;
-  --raise: #1a2032;
-  --line: #262e46;
-  --ink: #e9ecf6;
-  --mute: #8d96ad;
-  --brand: #8f7ffa;
-  --brand-soft: rgba(143, 127, 250, 0.14);
-  --coral: #ff6f61;
-  --coral-soft: rgba(255, 111, 97, 0.13);
+.dark, .force-dark {
+  --bg: #09090b;
+  --surface: #121214;
+  --raise: #18181b;
+  --line: #27272a;
+  --ink: #fafafa;
+  --mute: #a1a1aa;
+  --brand: #ccff00; /* Neon Green */
+  --brand-soft: rgba(204, 255, 0, 0.1);
+  --coral: #ff453a;
+  --coral-soft: rgba(255, 69, 58, 0.1);
   --ok: #34d399;
-  --warn: #f2b04d;
-  --bad: #ff5c74;
-  --glow1: rgba(143, 127, 250, 0.2);
-  --glow2: rgba(255, 111, 97, 0.12);
-}
-
-/* Landing always uses the dark palette regardless of user theme */
-.force-dark {
-  --bg: #0b0e16;
-  --surface: #121623;
-  --raise: #1a2032;
-  --line: #262e46;
-  --ink: #e9ecf6;
-  --mute: #8d96ad;
-  --brand: #8f7ffa;
-  --brand-soft: rgba(143, 127, 250, 0.14);
-  --coral: #ff6f61;
-  --coral-soft: rgba(255, 111, 97, 0.13);
-  --ok: #34d399;
-  --warn: #f2b04d;
-  --bad: #ff5c74;
-  --glow1: rgba(143, 127, 250, 0.2);
-  --glow2: rgba(255, 111, 97, 0.12);
+  --warn: #fbbf24;
+  --bad: #f87171;
 }
 
 @theme inline {
@@ -71,8 +48,8 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-monospace, monospace; 
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
@@ -89,9 +66,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Sharp corners for that raw look */
+* {
+  border-radius: 4px !important; 
+}
+
 ::selection {
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--brand);
+  color: #000;
 }
 
 * {
@@ -99,12 +81,11 @@ body {
   scrollbar-color: var(--line) transparent;
 }
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 *::-webkit-scrollbar-thumb {
   background: var(--line);
-  border-radius: 8px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
@@ -113,44 +94,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: 6px;
-}
-
-@keyframes om-shimmer {
-  0% {
-    background-position: -400px 0;
-  }
-  100% {
-    background-position: 400px 0;
-  }
 }
 
 .om-skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--raise) 25%,
-    var(--line) 40%,
-    var(--raise) 60%
-  );
-  background-size: 800px 100%;
-  animation: om-shimmer 1.4s infinite linear;
+  background: var(--raise);
 }
 
+/* REMOVED ALL GRID LINES & SMOG - PITCH BLACK BACKGROUND */
 .om-noise {
-  background-image: radial-gradient(
-      circle at 18% 22%,
-      var(--glow1),
-      transparent 42%
-    ),
-    radial-gradient(circle at 82% 12%, var(--glow2), transparent 40%),
-    radial-gradient(circle at 70% 90%, var(--glow1), transparent 45%);
+  background: var(--bg);
 }
 
 .om-grid {
-  background-image: linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 20%, transparent 75%);
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

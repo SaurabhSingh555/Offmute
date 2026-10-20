@@ -72,7 +72,7 @@ export function ReportModal({
     setBusy(true);
     try {
       await createReport(profile.id, targetType, targetId, reason, details);
-      toast({ title: "Report submitted", desc: "Thank you. Our moderation workflow picks it up here.", variant: "ok" });
+      toast({ title: "Report submitted", variant: "ok" });
       setDetails("");
       onClose();
     } catch (e) {
@@ -84,21 +84,18 @@ export function ReportModal({
 
   return (
     <Modal open={open} onClose={onClose} title={`Report ${targetType}`}>
-      <p className="text-sm text-mute leading-relaxed">
-        Reporting <b className="text-ink">{targetLabel}</b>. Reports are private and anonymous to
-        the reported user.
+      <p className="text-sm text-mute leading-relaxed font-mono">
+        Reporting <b className="text-ink">{targetLabel}</b>. Reports are private.
       </p>
       <div className="mt-4 space-y-4">
         <Field label="Reason">
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full h-10 px-3 rounded-xl bg-raise/60 border border-line text-sm focus:border-brand focus:outline-none"
+            className="w-full h-10 px-3 bg-bg border border-line text-sm focus:border-brand focus:outline-none font-mono"
           >
             {REPORT_REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </Field>
@@ -112,13 +109,9 @@ export function ReportModal({
           />
         </Field>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
-        <Button variant="outline" onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button onClick={submit} loading={busy}>
-          Submit report
-        </Button>
+      <div className="flex justify-end gap-2 mt-6">
+        <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button onClick={submit} loading={busy}>Submit</Button>
       </div>
     </Modal>
   );
@@ -172,8 +165,8 @@ function PollView({ post, uid, demo = false }: { post: PostItem; uid: string; de
   }
 
   return (
-    <div className="rounded-xl border border-line bg-raise/40 p-3 space-y-1.5">
-      {poll.question && <p className="text-sm font-semibold mb-2">{poll.question}</p>}
+    <div className="border border-line bg-bg p-3 space-y-1.5 mt-3">
+      {poll.question && <p className="text-sm font-bold font-mono mb-3">{poll.question}</p>}
       {opts.map((o, i) => {
         const mine = myVote === o.id;
         return (
@@ -182,29 +175,29 @@ function PollView({ post, uid, demo = false }: { post: PostItem; uid: string; de
             onClick={() => vote(o.id)}
             disabled={busy}
             className={cn(
-              "relative w-full overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+              "relative w-full overflow-hidden border px-3 py-2 text-left text-sm transition-colors font-mono",
               mine ? "border-brand" : "border-line hover:border-brand/50"
             )}
           >
             <span
               className={cn(
                 "absolute inset-y-0 left-0 transition-all duration-500",
-                mine ? "bg-brand/25" : "bg-brand/10"
+                mine ? "bg-brand/20" : "bg-brand/5"
               )}
               style={{ width: `${percents[i]}%` }}
             />
             <span className="relative flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 font-medium">
+              <span className="flex items-center gap-2 font-bold">
                 {mine && <Check className="size-3.5 text-brand" />}
                 {o.label}
               </span>
-              <span className="text-xs font-semibold text-mute tabular-nums">{percents[i]}%</span>
+              <span className="text-xs font-bold text-mute tabular-nums">{percents[i]}%</span>
             </span>
           </button>
         );
       })}
-      <p className="text-[11px] text-mute pt-1">
-        {total} vote{total === 1 ? "" : "s"} {myVote ? "· your vote is highlighted" : "· tap to vote"}
+      <p className="text-[10px] font-mono text-mute pt-2 uppercase tracking-wider">
+        {total} vote{total === 1 ? "" : "s"} {myVote ? "· voted" : "· tap to vote"}
       </p>
     </div>
   );
@@ -273,10 +266,7 @@ export default function PostCard({
   async function onBookmark() {
     if (demo) {
       setSaved(toggleDemoSaved(post.id));
-      toast({
-        title: saved ? "Removed from saved" : "Sample post saved",
-        variant: "info",
-      });
+      toast({ title: saved ? "Removed from saved" : "Saved", variant: "info" });
       return;
     }
     if (!uid) return;
@@ -294,7 +284,7 @@ export default function PostCard({
   async function onShare() {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
-      toast({ title: "Link copied", desc: "Anyone signed in can open it.", variant: "ok" });
+      toast({ title: "Link copied", variant: "ok" });
     } catch {
       toast({ title: "Copy failed", variant: "bad" });
     }
@@ -308,7 +298,6 @@ export default function PostCard({
       const next = await toggleBlock(uid, post.user_id, current);
       toast({
         title: next ? `Blocked @${handle}` : `Unblocked @${handle}`,
-        desc: next ? "Their posts, comments and messages are hidden from you." : undefined,
         variant: next ? "ok" : "info",
       });
     } catch (e) {
@@ -370,51 +359,50 @@ export default function PostCard({
   ];
 
   return (
-    <article className="rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-brand/30">
+    <article className="border border-line bg-surface p-4 transition-colors hover:border-mute/50">
       {/* Header */}
       <div className="flex items-start gap-3">
         <Link to={`/profile/${handle}`} aria-label={`View ${handle}`}>
-          <Avatar handle={handle} src={post.profile?.avatar_url} size={40} />
+          <Avatar handle={handle} src={post.profile?.avatar_url} size={36} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               to={`/profile/${handle}`}
-              className="font-semibold text-sm hover:text-brand transition-colors truncate"
+              className="font-bold text-xs font-mono hover:text-brand transition-colors truncate"
             >
               {handle}
             </Link>
             {isOwn && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand">
-                <BadgeCheck className="size-3.5" /> you
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold font-mono text-brand uppercase bg-brand/10 px-1 border border-brand/20">
+                <BadgeCheck className="size-3" /> you
               </span>
             )}
-            <span className="text-xs text-mute" title={fullDate(post.created_at)}>
-              · {timeAgo(post.created_at)}
+            <span className="text-[10px] font-mono text-mute uppercase" title={fullDate(post.created_at)}>
+              {timeAgo(post.created_at)}
             </span>
-            {demo && <Badge tone="neutral">sample</Badge>}
+            {demo && <Badge tone="neutral" className="text-[9px] py-0 px-1">sample</Badge>}
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {post.community && (
               <Link to={`/community/${post.community.slug}`}>
-                <Badge tone="brand" className="hover:brightness-110 cursor-pointer">
+                <Badge tone="brand" className="hover:brightness-110 cursor-pointer text-[9px] py-0 px-1">
                   #{post.community.name}
-                  {post.community.is_restricted && <span aria-hidden>🔒</span>}
                 </Badge>
               </Link>
             )}
             {showCategory && post.category && (
-              <Badge>{post.category.name}</Badge>
+              <Badge className="text-[9px] py-0 px-1">{post.category.name}</Badge>
             )}
           </div>
         </div>
         <Menu
           trigger={
             <button
-              className="p-1.5 rounded-lg text-mute hover:text-ink hover:bg-raise transition-colors"
+              className="p-1 text-mute hover:text-ink transition-colors border border-transparent hover:border-line"
               aria-label="Post options"
             >
-              <MoreHorizontal className="size-4.5" />
+              <MoreHorizontal className="size-4" />
             </button>
           }
           items={menuItems}
@@ -423,7 +411,7 @@ export default function PostCard({
 
       {/* Body */}
       {editing ? (
-        <div className="mt-3 space-y-3">
+        <div className="mt-4 space-y-3">
           <Textarea
             rows={4}
             maxLength={2000}
@@ -432,7 +420,7 @@ export default function PostCard({
             className="text-sm"
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-mute tabular-nums">{draft.length}/2000</span>
+            <span className="text-[10px] font-mono text-mute tabular-nums">{draft.length}/2000</span>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => { setEditing(false); setDraft(post.body); }}>
                 Cancel
@@ -447,7 +435,7 @@ export default function PostCard({
         <div className="mt-3">
           <p
             className={cn(
-              "text-[15px] leading-relaxed whitespace-pre-wrap break-words",
+              "text-[14px] leading-relaxed whitespace-pre-wrap break-words",
               longBody && !expanded && "line-clamp-4"
             )}
           >
@@ -456,9 +444,9 @@ export default function PostCard({
           {longBody && (
             <button
               onClick={() => setExpanded((e) => !e)}
-              className="text-xs font-semibold text-brand mt-1 hover:underline"
+              className="text-[10px] font-bold font-mono text-brand mt-1 hover:underline uppercase"
             >
-              {expanded ? "Show less" : "Read more"}
+              {expanded ? "[ Show less ]" : "[ Read more ]"}
             </button>
           )}
         </div>
@@ -471,58 +459,51 @@ export default function PostCard({
             src={post.image_url}
             alt="Post attachment"
             loading="lazy"
-            className="w-full max-h-[420px] object-cover rounded-xl border border-line"
+            className="w-full max-h-[420px] object-cover border border-line grayscale hover:grayscale-0 transition-all"
           />
         </a>
       )}
 
       {/* Poll */}
-      {post.poll && (
-        <div className="mt-3">
-          <PollView post={post} uid={uid} demo={demo} />
-        </div>
-      )}
+      {post.poll && <PollView post={post} uid={uid} demo={demo} />}
 
       {/* Actions */}
-      <div className="flex items-center gap-1 mt-3 -ml-1">
+      <div className="flex items-center gap-1 mt-4 pt-3 border-t border-line/50">
         <motion.button
-          whileTap={{ scale: 0.82 }}
+          whileTap={{ scale: 0.9 }}
           onClick={onLike}
           className={cn(
-            "group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors",
-            liked ? "text-coral bg-coral-soft" : "text-mute hover:text-coral hover:bg-coral-soft/60"
+            "flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold font-mono uppercase tracking-wider transition-colors border border-transparent",
+            liked ? "text-coral bg-coral/10 border-coral/20" : "text-mute hover:text-coral hover:bg-coral/5"
           )}
           aria-pressed={liked}
-          aria-label={liked ? "Unlike" : "Like"}
         >
-          <Heart className={cn("size-4.5 transition-transform", liked && "fill-current")} />
-          <span className="tabular-nums">{displayLikes || ""}</span>
+          <Heart className={cn("size-3.5", liked && "fill-current")} />
+          <span className="tabular-nums">{displayLikes || 0}</span>
         </motion.button>
 
         <Link
           to={`/post/${post.id}`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-semibold text-mute hover:text-brand hover:bg-brand-soft/60 transition-colors"
-          aria-label="Open comments"
+          className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold font-mono uppercase tracking-wider text-mute hover:text-brand hover:bg-brand/5 transition-colors border border-transparent hover:border-brand/20"
         >
-          <MessageCircle className="size-4.5" />
-          <span className="tabular-nums">{post.commentCount || ""}</span>
+          <MessageCircle className="size-3.5" />
+          <span className="tabular-nums">{post.commentCount || 0}</span>
         </Link>
 
         <motion.button
-          whileTap={{ scale: 0.82 }}
+          whileTap={{ scale: 0.9 }}
           onClick={onBookmark}
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors",
-            saved ? "text-brand bg-brand-soft" : "text-mute hover:text-brand hover:bg-brand-soft/60"
+            "flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold font-mono uppercase tracking-wider transition-colors border border-transparent",
+            saved ? "text-brand bg-brand/10 border-brand/20" : "text-mute hover:text-brand hover:bg-brand/5"
           )}
           aria-pressed={saved}
-          aria-label={saved ? "Remove bookmark" : "Bookmark"}
         >
-          <Bookmark className={cn("size-4.5", saved && "fill-current")} />
+          <Bookmark className={cn("size-3.5", saved && "fill-current")} />
         </motion.button>
 
         <span className="flex-1" />
-        {likeBusy && <Spinner className="text-mute mr-2" />}
+        {likeBusy && <Spinner className="text-mute mr-2 size-3" />}
       </div>
 
       {/* Dialogs */}
@@ -533,7 +514,7 @@ export default function PostCard({
         loading={deleteBusy}
         danger
         title="Delete this post?"
-        message="This permanently removes the post, its comments, likes and poll. There is no undo."
+        message="This permanently removes the post. No undo."
         confirmLabel="Delete post"
       />
       <ConfirmDialog
@@ -543,7 +524,7 @@ export default function PostCard({
         loading={blockBusy}
         danger
         title={`Block @${handle}?`}
-        message="Their posts, comments and community messages will be hidden from you, and they can't interact with you."
+        message="Their posts and comments will be hidden."
         confirmLabel="Block"
       />
       <ReportModal
@@ -557,13 +538,12 @@ export default function PostCard({
   );
 }
 
-/* Skeleton row for lists is in ui.tsx (PostSkeleton) */
 export function CardMotion({ children, index = 0 }: { children: React.ReactNode; index?: number }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, delay: Math.min(index * 0.04, 0.3) }}
+      transition={{ duration: 0.2, delay: Math.min(index * 0.05, 0.2) }}
     >
       {children}
     </motion.div>

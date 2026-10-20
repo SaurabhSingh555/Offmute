@@ -32,13 +32,13 @@ export function Logo({ size = 22, withWordmark = true }: { size?: number; withWo
   return (
     <span className="inline-flex items-center gap-2 select-none">
       <span
-        className="grid place-items-center rounded-lg bg-gradient-to-br from-brand to-coral text-white shadow-lg shadow-brand/20"
-        style={{ width: size + 10, height: size + 10 }}
+        className="grid place-items-center bg-brand text-black shadow-[3px_3px_0px_0px_rgba(255,255,255,0.2)]"
+        style={{ width: size + 8, height: size + 8 }}
       >
-        <MicOff size={size} strokeWidth={2.4} />
+        <MicOff size={size} strokeWidth={3} />
       </span>
       {withWordmark && (
-        <span className="font-display font-bold tracking-tight text-lg leading-none">
+        <span className="font-display font-bold tracking-tighter text-xl leading-none">
           OFF<span className="text-brand">MUTE</span>
         </span>
       )}
@@ -67,25 +67,25 @@ export function Button({
 }) {
   const variants: Record<ButtonVariant, string> = {
     primary:
-      "bg-brand text-white hover:brightness-110 shadow-md shadow-brand/25 disabled:opacity-50",
+      "bg-brand text-black hover:bg-brand/80 shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] hover:translate-y-0.5 hover:shadow-none disabled:opacity-50",
     coral:
-      "bg-coral text-white hover:brightness-110 shadow-md shadow-coral/25 disabled:opacity-50",
-    soft: "bg-brand-soft text-brand hover:bg-brand/20 disabled:opacity-50",
+      "bg-coral text-white hover:bg-coral/80 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)] hover:translate-y-0.5 hover:shadow-none disabled:opacity-50",
+    soft: "bg-brand-soft text-brand hover:bg-brand/20 disabled:opacity-50 border border-brand/20",
     ghost: "text-mute hover:text-ink hover:bg-raise disabled:opacity-40",
     outline: "border border-line text-ink hover:bg-raise disabled:opacity-40",
-    danger: "bg-bad/15 text-bad hover:bg-bad/25 disabled:opacity-50",
+    danger: "bg-bad/15 text-bad hover:bg-bad/25 disabled:opacity-50 border border-bad/20",
   };
   const sizes = {
-    sm: "h-8 px-3 text-xs gap-1.5",
-    md: "h-10 px-4 text-sm gap-2",
-    lg: "h-12 px-6 text-[15px] gap-2",
+    sm: "h-8 px-3 text-xs gap-1.5 font-bold font-mono uppercase tracking-wider",
+    md: "h-10 px-4 text-sm gap-2 font-bold font-mono uppercase tracking-wide",
+    lg: "h-12 px-6 text-[15px] gap-2 font-bold font-mono uppercase tracking-wide",
   };
   return (
     <motion.button
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.98 }}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center rounded-xl font-semibold transition-colors select-none whitespace-nowrap",
+        "inline-flex items-center justify-center transition-all select-none whitespace-nowrap",
         variants[variant],
         sizes[size],
         fullWidth && "w-full",
@@ -115,19 +115,19 @@ export function Field({
   return (
     <label className="block">
       {label && (
-        <span className="block text-xs font-semibold uppercase tracking-wide text-mute mb-1.5">
+        <span className="block text-[11px] font-bold font-mono uppercase tracking-widest text-mute mb-1.5">
           {label}
         </span>
       )}
       {children}
-      {error && <span className="block text-xs text-bad mt-1.5">{error}</span>}
-      {!error && hint && <span className="block text-xs text-mute mt-1.5">{hint}</span>}
+      {error && <span className="block text-xs text-bad mt-1.5 font-mono">{error}</span>}
+      {!error && hint && <span className="block text-[10px] text-mute mt-1.5 font-mono">{hint}</span>}
     </label>
   );
 }
 
 const inputCls =
-  "w-full h-10 px-3.5 rounded-xl bg-raise/60 border border-line text-sm text-ink placeholder:text-mute/70 focus:border-brand focus:outline-none transition-colors";
+  "w-full h-10 px-3 bg-bg border border-line text-sm text-ink placeholder:text-mute/50 focus:border-brand focus:outline-none transition-colors font-mono rounded-none";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className, ...rest } = props;
@@ -165,17 +165,17 @@ export function Badge({
   className?: string;
 }) {
   const tones = {
-    neutral: "bg-raise text-mute",
-    brand: "bg-brand-soft text-brand",
-    coral: "bg-coral-soft text-coral",
-    ok: "bg-ok/15 text-ok",
-    warn: "bg-warn/15 text-warn",
-    bad: "bg-bad/15 text-bad",
+    neutral: "bg-raise text-mute border border-line",
+    brand: "bg-brand-soft text-brand border border-brand/30",
+    coral: "bg-coral-soft text-coral border border-coral/30",
+    ok: "bg-ok/15 text-ok border border-ok/30",
+    warn: "bg-warn/15 text-warn border border-warn/30",
+    bad: "bg-bad/15 text-bad border border-bad/30",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+        "inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold font-mono uppercase tracking-wider",
         tones[tone],
         className
       )}
@@ -206,7 +206,7 @@ export function Avatar({
         width={size}
         height={size}
         loading="lazy"
-        className={cn("rounded-full object-cover shrink-0", className)}
+        className={cn("object-cover shrink-0 grayscale hover:grayscale-0 transition-all border border-line", className)}
         style={{ width: size, height: size }}
       />
     );
@@ -218,26 +218,26 @@ export function Avatar({
   return (
     <div
       aria-hidden
-      className={cn("rounded-full overflow-hidden shrink-0", className)}
+      className={cn("overflow-hidden shrink-0 border border-line", className)}
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 40 40" width={size} height={size} role="img" aria-label={`Anonymous avatar for ${handle ?? ""}`}>
         <defs>
           <linearGradient id={`ag${h}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={`hsl(${hue} 70% 52%)`} />
-            <stop offset="1" stopColor={`hsl(${hue2} 65% 38%)`} />
+            <stop offset="0" stopColor={`hsl(${hue} 60% 45%)`} />
+            <stop offset="1" stopColor={`hsl(${hue2} 50% 25%)`} />
           </linearGradient>
         </defs>
         <rect width="40" height="40" fill={`url(#ag${h})`} />
         {variant === 0 && (
-          <circle cx="20" cy="20" r="8.5" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="3" />
+          <circle cx="20" cy="20" r="8.5" fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="2.5" />
         )}
         {variant === 1 && (
           <path
             d="M20 10.5 L29.5 28 H10.5 Z"
             fill="none"
-            stroke="rgba(255,255,255,.9)"
-            strokeWidth="3"
+            stroke="rgba(255,255,255,.8)"
+            strokeWidth="2.5"
             strokeLinejoin="round"
           />
         )}
@@ -248,18 +248,18 @@ export function Avatar({
               y="13"
               width="17"
               height="14"
-              rx="4"
+              rx="1"
               fill="none"
-              stroke="rgba(255,255,255,.9)"
-              strokeWidth="3"
+              stroke="rgba(255,255,255,.8)"
+              strokeWidth="2.5"
             />
-            <line x1="20" y1="13" x2="20" y2="27" stroke="rgba(255,255,255,.9)" strokeWidth="3" />
+            <line x1="20" y1="13" x2="20" y2="27" stroke="rgba(255,255,255,.8)" strokeWidth="2.5" />
           </>
         )}
         {variant === 3 && (
           <>
-            <circle cx="15" cy="20" r="4.5" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="3" />
-            <circle cx="26" cy="20" r="4.5" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="3" />
+            <circle cx="15" cy="20" r="4.5" fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="2.5" />
+            <circle cx="26" cy="20" r="4.5" fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="2.5" />
           </>
         )}
       </svg>
@@ -270,14 +270,14 @@ export function Avatar({
 /* ------------------------------- Skeleton ------------------------------- */
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("om-skeleton rounded-lg", className)} aria-hidden />;
+  return <div className={cn("om-skeleton", className)} aria-hidden />;
 }
 
 export function PostSkeleton() {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
+    <div className="border border-line bg-surface p-4 space-y-3">
       <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-full" />
+        <Skeleton className="size-10" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="h-2.5 w-20" />
@@ -305,11 +305,11 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-14 px-6">
-      <div className="grid place-items-center size-14 rounded-2xl bg-brand-soft text-brand mb-4">
+      <div className="grid place-items-center size-14 border border-line bg-bg text-brand mb-4">
         {icon}
       </div>
-      <h3 className="font-display font-semibold text-base">{title}</h3>
-      {desc && <p className="text-sm text-mute mt-1.5 max-w-xs leading-relaxed">{desc}</p>}
+      <h3 className="font-display font-bold text-base tracking-tight">{title}</h3>
+      {desc && <p className="text-sm text-mute mt-1.5 max-w-xs leading-relaxed font-mono">{desc}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -324,11 +324,11 @@ export function ErrorState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-14 px-6">
-      <div className="grid place-items-center size-14 rounded-2xl bg-bad/15 text-bad mb-4">
+      <div className="grid place-items-center size-14 border border-bad/30 bg-bad/10 text-bad mb-4">
         <AlertTriangle className="size-6" />
       </div>
-      <h3 className="font-display font-semibold text-base">Something went wrong</h3>
-      <p className="text-sm text-mute mt-1.5 max-w-xs leading-relaxed break-words">
+      <h3 className="font-display font-bold text-base tracking-tight">Something went wrong</h3>
+      <p className="text-sm text-mute mt-1.5 max-w-xs leading-relaxed break-words font-mono">
         {message ?? "The request failed. Check your connection and try again."}
       </p>
       {onRetry && (
@@ -373,7 +373,7 @@ export function Modal({
       {open && (
         <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-4">
           <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -388,16 +388,16 @@ export function Modal({
             exit={{ opacity: 0, y: 28, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
             className={cn(
-              "relative w-full bg-surface border border-line rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92dvh] overflow-y-auto",
+              "relative w-full bg-surface border border-line shadow-2xl max-h-[92dvh] overflow-y-auto rounded-none",
               wide ? "sm:max-w-2xl" : "sm:max-w-lg"
             )}
           >
             {!hideHeader && (
-              <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-surface/95 backdrop-blur border-b border-line rounded-t-2xl">
-                <h2 className="font-display font-semibold text-base">{title}</h2>
+              <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-surface/95 backdrop-blur border-b border-line">
+                <h2 className="font-display font-bold text-base tracking-tight uppercase font-mono">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-mute hover:text-ink hover:bg-raise transition-colors"
+                  className="p-1.5 text-mute hover:text-ink hover:bg-raise transition-colors border border-transparent hover:border-line"
                   aria-label="Close dialog"
                 >
                   <X className="size-4.5" />
@@ -434,7 +434,7 @@ export function ConfirmDialog({
 }) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      <div className="text-sm text-mute leading-relaxed">{message}</div>
+      <div className="text-sm text-mute leading-relaxed font-mono">{message}</div>
       <div className="flex justify-end gap-2 mt-6">
         <Button variant="outline" onClick={onClose} disabled={loading}>
           Cancel
@@ -471,19 +471,19 @@ export function Toggle({
       className="flex items-center justify-between gap-4 w-full text-left py-1 group disabled:opacity-50"
     >
       <span>
-        <span className="block text-sm font-semibold">{label}</span>
-        {desc && <span className="block text-xs text-mute mt-0.5">{desc}</span>}
+        <span className="block text-sm font-bold tracking-tight">{label}</span>
+        {desc && <span className="block text-xs text-mute mt-0.5 font-mono">{desc}</span>}
       </span>
       <span
         className={cn(
-          "relative inline-flex h-6 w-10 shrink-0 rounded-full transition-colors",
-          checked ? "bg-brand" : "bg-raise border border-line"
+          "relative inline-flex h-5 w-9 shrink-0 transition-colors border border-line",
+          checked ? "bg-brand" : "bg-raise"
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-            checked ? "translate-x-4.5" : "translate-x-0.5"
+            "absolute top-0.5 size-3.5 bg-black transition-transform",
+            checked ? "translate-x-4.5" : "translate-x-0.5 bg-mute"
           )}
         />
       </span>
@@ -537,7 +537,7 @@ export function Menu({
             exit={{ opacity: 0, scale: 0.97, y: -4 }}
             transition={{ duration: 0.13 }}
             className={cn(
-              "absolute z-40 mt-1.5 min-w-44 rounded-xl border border-line bg-surface shadow-xl overflow-hidden py-1",
+              "absolute z-40 mt-1.5 min-w-44 border border-line bg-surface shadow-xl overflow-hidden py-1 rounded-none",
               align === "end" ? "right-0" : "left-0"
             )}
           >
@@ -549,7 +549,7 @@ export function Menu({
                   item.onClick();
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2.5 px-3.5 py-2 text-sm font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2.5 px-3.5 py-2 text-sm font-bold font-mono uppercase tracking-wider transition-colors text-left",
                   item.danger ? "text-bad hover:bg-bad/10" : "text-ink hover:bg-raise"
                 )}
               >
@@ -583,7 +583,7 @@ export function SetupScreen({ compact = false }: { compact?: boolean }) {
       icon: <KeyRound className="size-4" />,
       title: "Only two environment variables",
       body: (
-        <code className="block rounded-lg bg-raise/80 border border-line px-3 py-2 text-[11px] leading-relaxed whitespace-pre font-mono">
+        <code className="block bg-bg border border-line px-3 py-2 text-[11px] leading-relaxed whitespace-pre font-mono text-mute">
           {"VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co\nVITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY"}
         </code>
       ),
@@ -607,24 +607,24 @@ export function SetupScreen({ compact = false }: { compact?: boolean }) {
   ];
 
   return (
-    <div className={cn("rounded-2xl border border-warn/30 bg-warn/5 p-5", compact && "p-4")}>
+    <div className={cn("border border-warn/30 bg-warn/5 p-5", compact && "p-4")}>
       <div className="flex items-center gap-2.5">
         <AlertTriangle className="text-warn size-5 shrink-0" />
-        <h3 className="font-display font-semibold">Connect OFFMUTE to Supabase</h3>
+        <h3 className="font-display font-bold uppercase tracking-tight">Connect to Supabase</h3>
       </div>
-      <p className="text-sm text-mute mt-2 leading-relaxed">
+      <p className="text-xs text-mute mt-2 leading-relaxed font-mono">
         No keys detected yet. Once these steps are done, every feature below goes live with just
         the two <code className="text-xs">VITE_*</code> variables — no service key, no backend.
       </p>
       <div className="mt-4 space-y-4">
         {rows.map((r) => (
           <div key={r.title} className="flex gap-3">
-            <span className="grid place-items-center size-8 rounded-lg bg-warn/15 text-warn shrink-0 mt-0.5">
+            <span className="grid place-items-center size-8 border border-warn/30 bg-warn/10 text-warn shrink-0 mt-0.5">
               {r.icon}
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold">{r.title}</p>
-              <div className="text-xs text-mute mt-1 leading-relaxed">{r.body}</div>
+              <p className="text-xs font-bold font-mono uppercase">{r.title}</p>
+              <div className="text-[11px] text-mute mt-1 leading-relaxed font-mono">{r.body}</div>
             </div>
           </div>
         ))}

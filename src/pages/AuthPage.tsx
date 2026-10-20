@@ -63,7 +63,7 @@ export default function AuthPage() {
         if (res.error) {
           setError(
             /email not confirmed/i.test(res.error)
-              ? "Your email isn't confirmed yet. Check your inbox (or resend from Settings once you can sign in)."
+              ? "Your email isn't confirmed yet. Check your inbox."
               : res.error
           );
         } else {
@@ -80,7 +80,7 @@ export default function AuthPage() {
         } else if (res.needsConfirm) {
           setNotice({
             title: "Check your inbox",
-            desc: "We sent a confirmation link to your email. Once confirmed, sign in here — your anonymous handle will be ready.",
+            desc: "We sent a confirmation link. Once confirmed, sign in here.",
           });
         } else {
           afterAuth();
@@ -94,7 +94,7 @@ export default function AuthPage() {
   async function sendReset() {
     setError(null);
     if (!EMAIL_RE.test(forgotEmail))
-      return setError("Enter a valid email address for the reset link.");
+      return setError("Enter a valid email address.");
     setForgotBusy(true);
     try {
       const res = await resetPassword(forgotEmail);
@@ -102,7 +102,7 @@ export default function AuthPage() {
       else
         setNotice({
           title: "Reset link sent",
-          desc: `If an account exists for ${forgotEmail}, a password reset link is on its way.`,
+          desc: `If an account exists for ${forgotEmail}, a reset link is on its way.`,
         });
       setForgotOpen(false);
     } finally {
@@ -111,14 +111,14 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-bg om-noise flex flex-col items-center justify-center px-4 py-10">
+    <div className="force-dark min-h-dvh bg-bg om-noise flex flex-col items-center justify-center px-4 py-6 font-sans">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-6">
-          <Logo size={24} />
+          <Logo size={28} />
         </div>
 
         {!isSupabaseConfigured ? (
-          <div className="rounded-2xl border border-line bg-surface p-2">
+          <div className="border border-line bg-surface p-2 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)]">
             <SetupScreen />
           </div>
         ) : (
@@ -126,28 +126,30 @@ export default function AuthPage() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="rounded-2xl border border-line bg-surface p-6 sm:p-7 shadow-2xl shadow-black/10"
+            className="border border-line bg-surface p-5 sm:p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)] relative"
           >
+            <div className="absolute top-0 right-0 bg-brand text-black font-mono text-[9px] px-2 py-0.5 font-bold uppercase tracking-widest">
+              {mode === "in" ? "Login" : "Signup"}
+            </div>
+
             {resetDone && (
-              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-ok/30 bg-ok/10 px-3.5 py-3 text-sm">
-                <CheckCircle2 className="text-ok size-4.5 shrink-0 mt-0.5" />
-                <p>
-                  <b>Password updated.</b> Sign in with your new password.
-                </p>
+              <div className="mb-4 flex items-start gap-2 border border-ok/30 bg-ok/10 px-3 py-2 text-xs">
+                <CheckCircle2 className="text-ok size-4 shrink-0 mt-0.5" />
+                <p>Password updated. Sign in now.</p>
               </div>
             )}
             {notice && (
-              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-brand/30 bg-brand-soft px-3.5 py-3 text-sm">
-                <MailCheck className="text-brand size-4.5 shrink-0 mt-0.5" />
+              <div className="mb-4 flex items-start gap-2 border border-brand/30 bg-brand-soft px-3 py-2 text-xs">
+                <MailCheck className="text-brand size-4 shrink-0 mt-0.5" />
                 <p>
                   <b>{notice.title}</b>
-                  <span className="block text-xs text-mute mt-0.5">{notice.desc}</span>
+                  <span className="block text-[10px] text-mute mt-0.5 font-mono">{notice.desc}</span>
                 </p>
               </div>
             )}
 
             {/* Tabs */}
-            <div className="flex rounded-xl bg-raise/70 p-1 mb-6">
+            <div className="flex border border-line mb-5">
               {(
                 [
                   ["in", "Sign in"],
@@ -162,8 +164,8 @@ export default function AuthPage() {
                     setNotice(null);
                   }}
                   className={cn(
-                    "flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
-                    mode === m ? "bg-surface shadow text-ink" : "text-mute hover:text-ink"
+                    "flex-1 h-9 text-[11px] font-bold font-mono uppercase tracking-wider transition-colors",
+                    mode === m ? "bg-brand text-black" : "text-mute hover:text-ink hover:bg-raise"
                   )}
                 >
                   {label}
@@ -171,7 +173,7 @@ export default function AuthPage() {
               ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Field label="Email">
                 <Input
                   type="email"
@@ -205,20 +207,18 @@ export default function AuthPage() {
               )}
 
               {error && (
-                <p className="text-sm text-bad bg-bad/10 border border-bad/20 rounded-xl px-3.5 py-2.5 break-words">
-                  {error}
+                <p className="text-[11px] font-mono text-bad bg-bad/10 border border-bad/30 px-2.5 py-1.5 break-words uppercase tracking-tight">
+                  [ ERR ] {error}
                 </p>
               )}
 
-              <Button fullWidth size="lg" onClick={submit} loading={busy}>
+              <Button fullWidth size="md" onClick={submit} loading={busy} className="mt-1">
                 {mode === "in" ? "Sign in" : "Create anonymous account"}
               </Button>
 
               {mode === "up" && (
-                <p className="text-xs text-mute text-center leading-relaxed">
-                  We'll auto-generate a pseudonymous handle like{" "}
-                  <span className="text-brand font-semibold">NightShiftFox</span>. Your email is
-                  never shown publicly.
+                <p className="text-[10px] text-mute text-center leading-snug font-mono px-2">
+                  We'll auto-generate a handle like <span className="text-brand font-bold">NightShiftFox</span>.
                 </p>
               )}
             </div>
@@ -229,26 +229,27 @@ export default function AuthPage() {
                   setForgotOpen(true);
                   setError(null);
                 }}
-                className="mt-4 w-full text-center text-xs font-semibold text-mute hover:text-brand transition-colors"
+                className="mt-4 w-full text-center text-[10px] font-mono text-mute hover:text-brand transition-colors uppercase tracking-wider"
               >
                 Forgot your password?
               </button>
             ) : (
-              <div className="mt-4 rounded-xl border border-line bg-raise/40 p-4 space-y-3">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  <KeyRound className="size-4 text-brand" /> Reset your password
+              <div className="mt-3 border border-line bg-raise/30 p-3 space-y-2">
+                <p className="text-[10px] font-mono font-bold uppercase flex items-center gap-1.5 text-brand">
+                  <KeyRound className="size-3.5" /> Reset password
                 </p>
                 <Input
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="you@company.com"
+                  className="h-8 text-xs"
                 />
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-8 text-[10px]"
                     onClick={() => {
                       setForgotOpen(false);
                       setError(null);
@@ -256,8 +257,8 @@ export default function AuthPage() {
                   >
                     Back
                   </Button>
-                  <Button size="sm" className="flex-1" onClick={sendReset} loading={forgotBusy}>
-                    Send reset link
+                  <Button size="sm" className="flex-1 h-8 text-[10px]" onClick={sendReset} loading={forgotBusy}>
+                    Send link
                   </Button>
                 </div>
               </div>
@@ -265,9 +266,9 @@ export default function AuthPage() {
           </motion.div>
         )}
 
-        <p className="text-center text-xs text-mute mt-6 leading-relaxed max-w-xs mx-auto">
-          Anonymity protects you from other users — it is not a shield against account
-          compromise or legal process. Be kind about that gap.
+        {/* Chhota Footer Disclaimer */}
+        <p className="text-center text-[9px] font-mono text-mute mt-5 leading-snug max-w-xs mx-auto uppercase tracking-tighter opacity-60">
+          Anonymity protects you from users, not from legal process or account compromise.
         </p>
       </div>
     </div>

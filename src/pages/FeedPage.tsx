@@ -48,7 +48,6 @@ export default function FeedPage() {
   const load = useCallback(
     async (reset: boolean) => {
       if (!profile) {
-        // Profile not loaded yet — the layout banner offers retry/reload.
         setLoading(false);
         return;
       }
@@ -73,7 +72,7 @@ export default function FeedPage() {
           p.myPollVote = p.poll ? (votes.get(p.poll.id) ?? null) : null;
         });
         if (mySeq !== seq.current) return;
-        // Empty context → show client-side samples so new users never see a blank feed.
+        
         if (reset && res.posts.length === 0 && !res.more) {
           const cSlug = joinedRef.current.find((c) => c.id === communityId)?.slug ?? null;
           const tabDef2 = FEED_TABS.find((t) => t.id === tab);
@@ -108,7 +107,6 @@ export default function FeedPage() {
     load(true);
   }, [load]);
 
-  /* Refresh the feed when a new post is published from anywhere */
   useEffect(() => {
     const onPosted = () => load(true);
     window.addEventListener("om:posted", onPosted);
@@ -125,70 +123,70 @@ export default function FeedPage() {
   const isForyouEmpty = tab === "foryou" && !communityId;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-end justify-between gap-3 border-b border-line pb-4">
         <div>
-          <h1 className="font-display font-bold text-2xl tracking-tight">Feed</h1>
-          <p className="text-sm text-mute mt-0.5">What's actually going on at work.</p>
+          <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Feed</h1>
+          <p className="text-xs font-mono text-mute mt-1 uppercase tracking-wider">What's actually going on at work.</p>
         </div>
         <Button size="sm" className="shrink-0 hidden sm:inline-flex" onClick={() => requestCompose()}>
-          <PenSquare className="size-3.5" /> Post
+          <PenSquare className="size-3.5 mr-1" /> Post
         </Button>
       </div>
 
-      {joined.length > 0 && (
-        <div className="max-w-xs">
-          <Select
-            value={communityId}
-            onChange={(e) => setCommunityId(e.target.value)}
-            aria-label="Filter by your communities"
-          >
-            <option value="">All of OFFMUTE</option>
-            {joined.map((c) => (
-              <option key={c.id} value={c.id}>
-                #{c.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      )}
+      {/* Filter & Tabs */}
+      <div className="space-y-3">
+        {joined.length > 0 && (
+          <div className="max-w-xs">
+            <Select
+              value={communityId}
+              onChange={(e) => setCommunityId(e.target.value)}
+              aria-label="Filter by your communities"
+              className="h-9 text-xs font-mono uppercase"
+            >
+              <option value="">All of OFFMUTE</option>
+              {joined.map((c) => (
+                <option key={c.id} value={c.id}>
+                  #{c.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
 
-      <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1" role="tablist" aria-label="Feed tabs">
-        {FEED_TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id && !communityId}
-            onClick={() => {
-              setTab(t.id);
-              setCommunityId("");
-            }}
-            className={cn(
-              "relative shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
-              tab === t.id && !communityId ? "text-white" : "text-mute hover:text-ink bg-raise/60"
-            )}
-          >
-            {tab === t.id && !communityId && (
-              <motion.span
-                layoutId="feed-tab"
-                className="absolute inset-0 rounded-full bg-brand"
-                transition={{ type: "spring", stiffness: 500, damping: 38 }}
-              />
-            )}
-            <span className="relative">{t.label}</span>
-          </button>
-        ))}
+        <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" role="tablist" aria-label="Feed tabs">
+          {FEED_TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id && !communityId}
+              onClick={() => {
+                setTab(t.id);
+                setCommunityId("");
+              }}
+              className={cn(
+                "relative shrink-0 border px-4 py-1.5 text-[11px] font-bold font-mono uppercase tracking-wider transition-colors",
+                tab === t.id && !communityId 
+                  ? "bg-brand text-black border-brand" 
+                  : "text-mute hover:text-ink bg-surface border-line hover:border-mute"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {showingDemos && !loading && !error && (
-        <p className="text-center text-[11px] text-mute">
-          Sample posts while this feed fills up — real posts take over automatically.
+        <p className="text-center text-[10px] font-mono text-mute uppercase tracking-widest border border-line bg-surface py-2">
+          [ Sample posts while feed fills up ]
         </p>
       )}
 
+      {/* Content Area */}
       {loading ? (
         <div className="space-y-4 pt-2">
-          <PostSkeleton />
           <PostSkeleton />
           <PostSkeleton />
           <PostSkeleton />
@@ -196,7 +194,7 @@ export default function FeedPage() {
       ) : error ? (
         <ErrorState message={error} onRetry={() => load(true)} />
       ) : posts.length === 0 ? (
-        <div className="rounded-2xl border border-line bg-surface">
+        <div className="border border-line bg-surface">
           <EmptyState
             icon={<Inbox className="size-6" />}
             title={
@@ -208,17 +206,17 @@ export default function FeedPage() {
             }
             desc={
               isForyouEmpty && !communityId
-                ? "Follow anonymous handles and join communities — their posts will show up here."
+                ? "Follow anonymous handles and join communities."
                 : "Be the first to say what everyone's thinking."
             }
             action={
-              <div className="flex gap-2 flex-wrap justify-center">
+              <div className="flex gap-2 flex-wrap justify-center mt-2">
                 <Button size="sm" onClick={() => requestCompose()}>
-                  <PenSquare className="size-3.5" /> Write the first post
+                  <PenSquare className="size-3.5 mr-1" /> Write post
                 </Button>
                 <Link to="/explore">
                   <Button size="sm" variant="outline">
-                    <Compass className="size-3.5" /> Find communities
+                    <Compass className="size-3.5 mr-1" /> Find communities
                   </Button>
                 </Link>
               </div>
@@ -240,7 +238,7 @@ export default function FeedPage() {
             ))}
           </div>
           {more && (
-            <div className="flex justify-center pt-2">
+            <div className="flex justify-center pt-4 border-t border-line mt-4">
               <Button variant="outline" onClick={() => load(false)} loading={loadingMore}>
                 Load more
               </Button>

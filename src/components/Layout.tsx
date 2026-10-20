@@ -54,15 +54,15 @@ function NavItem({
       to={to}
       className={({ isActive }) =>
         cn(
-          "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors",
-          isActive ? "bg-brand-soft text-brand" : "text-mute hover:text-ink hover:bg-raise"
+          "relative flex items-center gap-3 px-3 py-2.5 text-sm font-bold font-mono uppercase tracking-wider transition-colors border border-transparent",
+          isActive ? "bg-brand text-black border-brand" : "text-mute hover:text-ink hover:bg-raise hover:border-line"
         )
       }
     >
       <span className="relative">
         {icon}
         {!!badge && badge > 0 && (
-          <span className="absolute -top-1.5 -right-2 min-w-4.5 h-4.5 px-1 rounded-full bg-coral text-white text-[10px] font-bold grid place-items-center">
+          <span className="absolute -top-1.5 -right-2 min-w-4 h-4 px-1 bg-coral text-white text-[9px] font-bold grid place-items-center border border-black">
             {badge > 9 ? "9+" : badge}
           </span>
         )}
@@ -137,16 +137,16 @@ export default function Layout() {
 
   return (
     <UnreadContext.Provider value={{ unread, setUnread }}>
-      <div className="min-h-dvh">
+      <div className="min-h-dvh bg-bg text-ink font-sans">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-line bg-surface/50 backdrop-blur px-4 py-5 z-30">
+        <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-line bg-surface px-4 py-5 z-30">
           <NavLink to="/feed" aria-label="OFFMUTE home">
             <Logo />
           </NavLink>
           <Button fullWidth className="mt-6" onClick={() => requestCompose()}>
             <PenSquare className="size-4" /> New post
           </Button>
-          <nav className="mt-6 flex-1 overflow-y-auto space-y-0.5" aria-label="Primary">
+          <nav className="mt-6 flex-1 overflow-y-auto space-y-1" aria-label="Primary">
             <NavItem to="/feed" icon={<Home className="size-4.5" />} label="Feed" />
             <NavItem to="/explore" icon={<Compass className="size-4.5" />} label="Explore" />
             <NavItem
@@ -164,8 +164,8 @@ export default function Layout() {
               />
             )}
             {sideComms.length > 0 && (
-              <div className="pt-5">
-                <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-mute/70 mb-1.5">
+              <div className="pt-5 mt-5 border-t border-line">
+                <p className="px-3 text-[10px] font-bold font-mono uppercase tracking-widest text-mute mb-2">
                   Your communities
                 </p>
                 {sideComms.map((c) => (
@@ -174,8 +174,8 @@ export default function Layout() {
                     to={`/community/${c.slug}`}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-colors truncate",
-                        isActive ? "bg-coral-soft text-coral" : "text-mute hover:text-ink hover:bg-raise"
+                        "flex items-center gap-2.5 px-3 py-2 text-[12px] font-bold font-mono uppercase tracking-wider transition-colors truncate border border-transparent",
+                        isActive ? "bg-coral-soft text-coral border-coral/30" : "text-mute hover:text-ink hover:bg-raise hover:border-line"
                       )
                     }
                   >
@@ -185,7 +185,7 @@ export default function Layout() {
                 ))}
                 <NavLink
                   to="/explore"
-                  className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-semibold text-brand hover:underline"
+                  className="flex items-center gap-2.5 px-3 py-2 text-[12px] font-bold font-mono text-brand hover:underline uppercase tracking-wider mt-1"
                 >
                   Explore all →
                 </NavLink>
@@ -196,22 +196,22 @@ export default function Layout() {
           <div className="pt-3 mt-3 border-t border-line space-y-1">
             <button
               onClick={toggle}
-              className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-mute hover:text-ink hover:bg-raise transition-colors"
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-bold font-mono uppercase tracking-wider text-mute hover:text-ink hover:bg-raise transition-colors border border-transparent hover:border-line"
             >
               {theme === "dark" ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
               {theme === "dark" ? "Light theme" : "Dark theme"}
             </button>
             {profile && (
-              <div className="flex items-center gap-2.5 px-2 py-2">
+              <div className="flex items-center gap-2.5 px-2 py-2 mt-2 border border-line bg-bg">
                 <Avatar handle={profile.handle} src={profile.avatar_url} size={34} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold truncate">{profile.handle}</p>
-                  <p className="text-[11px] text-mute truncate">Anonymous identity</p>
+                  <p className="text-xs font-bold font-mono truncate">{profile.handle}</p>
+                  <p className="text-[10px] text-mute font-mono uppercase tracking-tighter truncate">Anonymous identity</p>
                 </div>
                 <Menu
                   trigger={
                     <button
-                      className="p-1.5 rounded-lg text-mute hover:text-ink hover:bg-raise"
+                      className="p-1.5 text-mute hover:text-ink hover:bg-raise border border-transparent hover:border-line"
                       aria-label="Account menu"
                     >
                       <Settings className="size-4" />
@@ -237,18 +237,18 @@ export default function Layout() {
         </aside>
 
         {/* Mobile top bar */}
-        <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-bg/85 backdrop-blur border-b border-line">
+        <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-surface border-b border-line">
           <NavLink to="/feed" aria-label="OFFMUTE home">
             <Logo />
           </NavLink>
           <NavLink
             to="/notifications"
-            className="relative p-2 rounded-xl text-mute hover:text-ink transition-colors"
+            className="relative p-2 text-mute hover:text-ink transition-colors border border-transparent hover:border-line"
             aria-label="Notifications"
           >
             <Bell className="size-5" />
             {unread > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-4.5 h-4.5 px-1 rounded-full bg-coral text-white text-[10px] font-bold grid place-items-center">
+              <span className="absolute top-0 right-0 min-w-4 h-4 px-1 bg-coral text-white text-[9px] font-bold grid place-items-center border border-black">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}
@@ -259,11 +259,11 @@ export default function Layout() {
         <div className="lg:pl-64">
           <main className="max-w-2xl mx-auto px-4 pt-4 lg:pt-8 pb-28 lg:pb-14">
             {user && !loading && !profile && (
-              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-bad/40 bg-bad/10 p-4">
+              <div className="mb-4 flex items-start gap-3 border border-bad/30 bg-bad/10 p-4">
                 <TriangleAlert className="text-bad size-5 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold">Couldn't load your anonymous profile</p>
-                  <p className="text-xs text-mute mt-1 leading-relaxed">
+                  <p className="text-sm font-bold font-mono uppercase tracking-tight">Couldn't load your profile</p>
+                  <p className="text-xs text-mute mt-1 leading-relaxed font-mono">
                     Posting, feeds and comments need your profile. Retry once, or reload the page
                     if it still fails.
                   </p>
@@ -284,7 +284,7 @@ export default function Layout() {
 
         {/* Mobile bottom nav */}
         <nav
-          className="lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 items-center border-t border-line bg-surface/90 backdrop-blur px-2 pb-[env(safe-area-inset-bottom)]"
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 items-center border-t border-line bg-surface px-2 pb-[env(safe-area-inset-bottom)]"
           aria-label="Mobile"
         >
           {[
@@ -302,10 +302,10 @@ export default function Layout() {
               <button
                 key={i}
                 onClick={() => requestCompose()}
-                className="mx-auto -mt-6 size-13 rounded-2xl bg-gradient-to-br from-brand to-coral text-white shadow-lg shadow-brand/30 grid place-items-center active:scale-95 transition-transform"
+                className="mx-auto -mt-6 size-12 bg-brand text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] grid place-items-center active:translate-y-1 active:shadow-none transition-all border border-brand"
                 aria-label="New post"
               >
-                <PenSquare className="size-5.5" />
+                <PenSquare className="size-5" />
               </button>
             ) : (
               <NavLink
@@ -313,7 +313,7 @@ export default function Layout() {
                 to={(item as { to: string }).to}
                 className={({ isActive }) =>
                   cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors",
+                    "flex flex-col items-center gap-0.5 py-2.5 text-[9px] font-bold font-mono uppercase tracking-tighter transition-colors",
                     isActive ? "text-brand" : "text-mute"
                   )
                 }
