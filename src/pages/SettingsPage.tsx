@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
   Flag,
+  Gift,
   KeyRound,
   LogOut,
   Mail,
   Pencil,
   Palette,
   ShieldBan,
+  Smartphone,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -18,6 +20,7 @@ import type { ReportItem, UserPrefs } from "@/lib/types";
 import { fetchMyBlocks, fetchMyReports, toggleBlock } from "@/lib/queries";
 import { timeAgo } from "@/lib/utils";
 import { ProfileEditModal } from "@/pages/ProfilePage";
+import InstallApp from "@/components/InstallApp";
 import {
   Avatar,
   Badge,

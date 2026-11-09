@@ -1,3 +1,4 @@
+import type { Audience } from "./audience";
 import type { CommentItem, PostItem } from "./types";
 
 /**
@@ -23,6 +24,12 @@ const AUTHORS = {
   d8: "ChaiPause77",
   d9: "BacklogBear15",
   d10: "FilterCoffee56",
+  d11: "ExamOwl21",
+  d12: "HostelGhost77",
+  d13: "PlacementPanda",
+  d14: "NotesNinja55",
+  d15: "CampusCat12",
+  d16: "BackbenchBard",
 } as const;
 type AuthorKey = keyof typeof AUTHORS;
 const demoUserId = (k: AuthorKey) => `demo-user-${k}`;
@@ -107,6 +114,26 @@ const COMMENTS: Record<string, DemoCommentSpec[]> = {
   "demo-31": [
     { author: "d3", hoursAgo: 8, body: "Family on a rotational basis. The family metaphor has no labor law, ever." },
   ],
+  "student-01": [
+    { author: "d15", hoursAgo: 1.5, body: "The 8 AM class is a social experiment and we are all failing it." },
+    { author: "d14", hoursAgo: 1, body: "Attendance proxy is the real group project nobody talks about." },
+    { author: "d12", hoursAgo: 0.5, body: "The proxy has a better attendance than me at this point.", replyTo: 1 },
+  ],
+  "student-03": [
+    { author: "d11", hoursAgo: 6, body: "The HR round is just a vibe check with a clipboard. You will be fine." },
+    { author: "d16", hoursAgo: 5, body: "Ask one question about the role. It makes you look interested and buys time." },
+  ],
+  "student-04": [
+    { author: "d13", hoursAgo: 4, body: "Group study works only when everyone is equally scared. Otherwise it is a podcast." },
+    { author: "d15", hoursAgo: 3, body: "Library > hostel room. The bed is a trap and it always wins." },
+  ],
+  "student-06": [
+    { author: "d14", hoursAgo: 30, body: "The backbench is not a seat. It is a lifestyle." },
+    { author: "d11", hoursAgo: 28, body: "I have attended 6 classes and know the syllabus from memes. Efficient." },
+  ],
+  "student-13": [
+    { author: "d12", hoursAgo: 3, body: "One offer is a start. Keep interviewing until the fear turns into leverage." },
+  ],
 };
 
 interface DemoPostSpec {
@@ -117,6 +144,8 @@ interface DemoPostSpec {
   community?: string;
   restricted?: boolean;
   likes: number;
+  audience?: Audience;
+  key?: string;
   poll?: { question: string; options: { label: string; votes: number }[] };
 }
 
@@ -196,6 +225,22 @@ const POSTS: DemoPostSpec[] = [
   { author: "d6", hoursAgo: 26, community: "sales-marketing", likes: 16, body: `Marketing says the campaign "underperformed expectations". It had zero impressions. The website was down.` },
   { author: "d10", hoursAgo: 72, community: "career-advice", likes: 12, body: `Rule I live by: every exit-interview answer should read like a LinkedIn post in disguise.` },
   { author: "d5", hoursAgo: 14, community: "night-shift", likes: 20, body: `Day 400 of night shift: I can hear the office fridge cycle. We are close now.` },
+
+  /* ----------------------------- Student world ----------------------------- */
+  { author: "d11", key: "student-01", audience: "student", hoursAgo: 2, category: "campus-life", likes: 18, body: `8 AM lecture attendance is at 12%. The same 12% will carry the whole batch during placements and we all know it.` },
+  { author: "d12", key: "student-02", audience: "student", hoursAgo: 5, category: "campus-confessions", likes: 24, body: `Confession: I have been signing the hostel warden's register with a friend's name for a month. The handwriting is now better than my exam handwriting.` },
+  { author: "d13", key: "student-03", audience: "student", hoursAgo: 8, category: "exams-placements", likes: 31, body: `Placement season update: cleared the aptitude, cleared the group discussion, and got rejected in HR because I said I "handle pressure well". Apparently that is not a personality.` },
+  { author: "d14", key: "student-04", audience: "student", hoursAgo: 5, category: "study-hacks", likes: 15, body: `The only study method that has ever worked for me: teach the topic to a friend who is equally confused. Two panics, one understanding.`, poll: { question: "How do you actually study?", options: [ { label: "Last night, full syllabus", votes: 9 }, { label: "Group study (read: gossip)", votes: 5 }, { label: "Notes from a senior", votes: 7 }, { label: "I don't, I improvise", votes: 4 } ] } },
+  { author: "d15", key: "student-05", audience: "student", hoursAgo: 26, category: "campus-life", likes: 12, body: `Canteen uncle raised the samosa price by 2 rupees and did not even blink. Inflation hits different when it is between classes.` },
+  { author: "d16", key: "student-06", audience: "student", hoursAgo: 48, category: "campus-confessions", likes: 27, body: `I have mastered the backbench art of looking deeply attentive while understanding absolutely nothing. My notes are just the professor's slides with my own fear in the margins.` },
+  { author: "d11", key: "student-07", audience: "student", hoursAgo: 7, category: "internships", likes: 20, body: `Unpaid internship with "learning opportunities". The learning opportunity was finding out that I cannot afford the metro to reach the learning opportunity.` },
+  { author: "d13", key: "student-08", audience: "student", hoursAgo: 12, category: "exams-placements", likes: 22, body: `Everyone says "just be confident" before the interview. I was confident. I was confidently wrong about the company's name.`, poll: { question: "What scares you more in placement season?", options: [ { label: "Aptitude round", votes: 4 }, { label: "Group discussion", votes: 6 }, { label: "HR round", votes: 8 }, { label: "The silence after applying", votes: 11 } ] } },
+  { author: "d14", key: "student-09", audience: "student", hoursAgo: 30, category: "study-hacks", likes: 9, body: `Topper notes are just normal notes with better lighting and a nicer pen. You are not behind. You are just using a cheaper pen.` },
+  { author: "d12", key: "student-10", audience: "student", hoursAgo: 3, community: "college-life", likes: 14, body: `Hostel Wi-Fi died during an online exam. The invigilator said "technical issue is your problem". I have never felt more connected to my data pack.` },
+  { author: "d15", key: "student-11", audience: "student", hoursAgo: 20, community: "campus-confessions", restricted: true, likes: 19, body: `I have been pretending to be a topper in the group chat. My real marks are a state secret and the group is planning a study session at my room.` },
+  { author: "d16", key: "student-12", audience: "student", hoursAgo: 10, community: "internships", likes: 11, body: `Day 1 as an intern: they gave me a laptop, a login that does not work, and a task due yesterday. Corporate is just college with better chairs.` },
+  { author: "d13", key: "student-13", audience: "student", hoursAgo: 6, community: "placements", likes: 16, body: `One offer is a start. Keep interviewing until the fear turns into leverage. Please do not accept the first offer just because the title sounds fancy.` },
+  { author: "d11", key: "student-14", audience: "student", hoursAgo: 9, community: "exam-war-room", likes: 13, body: `Exam tomorrow. Syllabus is a suggestion, the previous year papers are the actual syllabus, and my sleep is the sacrifice. Who else is awake?` },
 ];
 
 /* ------------------------------- Engagement ------------------------------ */
@@ -268,10 +313,13 @@ function commentCountFor(id: string): number {
   return list.filter((c) => c.replyTo == null).length + list.filter((c) => c.replyTo != null).length;
 }
 
-const DEMO_POSTS: PostItem[] = POSTS.map((s, i) => {
-  const id = `demo-${String(i + 1).padStart(2, "0")}`;
+type DemoPost = PostItem & { audience: Audience };
+
+const DEMO_POSTS: DemoPost[] = POSTS.map((s, i) => {
+  const id = s.key ?? `demo-${String(i + 1).padStart(2, "0")}`;
   return {
     id,
+    audience: s.audience ?? "corporate",
     body: s.body,
     image_url: null,
     user_id: demoUserId(s.author),
@@ -302,7 +350,7 @@ const DEMO_POSTS: PostItem[] = POSTS.map((s, i) => {
       : null,
     myPollVote: null,
     isDemo: true,
-  } as PostItem;
+  } as DemoPost;
 });
 
 export const ALL_DEMO_POSTS: PostItem[] = DEMO_POSTS;
@@ -353,8 +401,10 @@ export function demoPostsFor(context: {
   tab: string;
   categorySlug?: string;
   communitySlug?: string | null;
+  audience?: Audience | null;
 }): PostItem[] {
-  let list = DEMO_POSTS;
+  const audience = context.audience ?? "corporate";
+  let list = DEMO_POSTS.filter((p) => p.audience === audience);
   if (context.communitySlug) list = list.filter((p) => p.community?.slug === context.communitySlug);
   else if (context.categorySlug) list = list.filter((p) => p.category?.slug === context.categorySlug);
   if (context.tab === "trending")
@@ -362,6 +412,9 @@ export function demoPostsFor(context: {
   return withDemoEngagement(list);
 }
 
-export function demoPostsForCommunity(slug: string): PostItem[] {
-  return withDemoEngagement(DEMO_POSTS.filter((p) => p.community?.slug === slug));
+export function demoPostsForCommunity(slug: string, audience?: Audience | null): PostItem[] {
+  const filtered = audience
+    ? DEMO_POSTS.filter((p) => p.audience === audience)
+    : DEMO_POSTS;
+  return withDemoEngagement(filtered.filter((p) => p.community?.slug === slug));
 }

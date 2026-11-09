@@ -9,7 +9,10 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Bell,
   Bookmark,
+  Briefcase,
   Compass,
+  Gift,
+  GraduationCap,
   Hash,
   Home,
   LogOut,
@@ -23,6 +26,14 @@ import {
 import { useAuth, useTheme } from "@/context/AppProviders";
 import { supabase } from "@/lib/supabase";
 import { fetchJoinedCommunities, fetchUnreadCount } from "@/lib/queries";
+import { LOCAL_NOTIF_EVENT, localUnreadCount } from "@/lib/localNotifs";
+import {
+  audienceConfig,
+  lockedAudienceForEmail,
+  otherAudienceCommunitySlugs,
+  setAudience,
+  useAudience,
+} from "@/lib/audience";
 import type { Community } from "@/lib/types";
 import { Avatar, Button, Logo, Menu } from "@/components/ui";
 import PostComposer, { requestCompose } from "@/components/PostComposer";
@@ -77,6 +88,9 @@ function NavItem({
 export default function Layout() {
   const { profile, user, loading, signOut, refreshProfile } = useAuth();
   const { theme, toggle } = useTheme();
+  const audience = useAudience();
+  const audienceInfo = audienceConfig(audience);
+  const audienceLocked = !!lockedAudienceForEmail(user?.email);
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
   const [sideComms, setSideComms] = useState<Community[]>([]);
@@ -100,21 +114,30 @@ export default function Layout() {
   useEffect(() => {
     if (!uid) return;
     let alive = true;
-    fetchJoinedCommunities(uid, 5).then((c) => alive && setSideComms(c)).catch(() => {});
-    const refresh = () => fetchJoinedCommunities(uid, 5).then((c) => alive && setSideComms(c)).catch(() => {});
-    window.addEventListener("om:refresh-side", refresh);
+    const hidden = otherAudienceCommunitySlugs(audience);
+    const load = () =>
+      fetchJoinedCommunities(uid, 30)
+        .then((c) => {
+          if (!alive) return;
+          setSideComms(c.filter((x) => !hidden.has(x.slug)).slice(0, 5));
+        })
+        .catch(() => {});
+    load();
+    window.addEventListener("om:refresh-side", load);
     return () => {
       alive = false;
-      window.removeEventListener("om:refresh-side", refresh);
+      window.removeEventListener("om:refresh-side", load);
     };
-  }, [uid]);
+  }, [uid, audience]);
 
   /* Realtime unread badge (bounded per-user channel) */
   useEffect(() => {
     if (!uid) return;
     let alive = true;
     const refresh = () =>
-      fetchUnreadCount(uid).then((n) => alive && setUnread(n)).catch(() => {});
+      fetchUnreadCount(uid)
+        .then((n) => alive && setUnread(n + localUnreadCount(uid)))
+        .catch(() => alive && setUnread(localUnreadCount(uid)));
     refresh();
     const channel = supabase
       .channel(`notif-${uid}`)
@@ -124,8 +147,10 @@ export default function Layout() {
         () => refresh()
       )
       .subscribe();
+    window.addEventListener(LOCAL_NOTIF_EVENT, refresh);
     return () => {
       alive = false;
+      window.removeEventListener(LOCAL_NOTIF_EVENT, refresh);
       supabase.removeChannel(channel);
     };
   }, [uid]);
@@ -156,6 +181,7 @@ export default function Layout() {
               badge={unread}
             />
             <NavItem to="/saved" icon={<Bookmark className="size-4.5" />} label="Saved" />
+            <NavItem to="/invite" icon={<Gift className="size-4.5" />} label="Invite & earn" />
             {profile && (
               <NavItem
                 to={`/profile/${profile.handle}`}
@@ -194,6 +220,49 @@ export default function Layout() {
           </nav>
 
           <div className="pt-3 mt-3 border-t border-line space-y-1">
+            {audienceLocked ? (
+              <div
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-bold font-mono uppercase tracking-wider text-mute"
+                title="This account is locked to its signup mode"
+              >
+                {audience === "student" ? (
+                  <GraduationCap className="size-4.5" />
+                ) : (
+                  <Briefcase className="size-4.5" />
+                )}
+                <span className="flex-1 text-left">{audienceInfo.short}</span>
+              </div>
+            ) : (
+              <Menu
+                align="start"
+                placement="top"
+                trigger={
+                  <button
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-bold font-mono uppercase tracking-wider text-mute hover:text-ink hover:bg-raise transition-colors border border-transparent hover:border-line"
+                    title="Switch student / corporate mode"
+                  >
+                    {audience === "student" ? (
+                      <GraduationCap className="size-4.5" />
+                    ) : (
+                      <Briefcase className="size-4.5" />
+                    )}
+                    <span className="flex-1 text-left">{audienceInfo.short}</span>
+                  </button>
+                }
+                items={[
+                  {
+                    label: "Student mode",
+                    icon: <GraduationCap className="size-4" />,
+                    onClick: () => setAudience("student"),
+                  },
+                  {
+                    label: "Corporate mode",
+                    icon: <Briefcase className="size-4" />,
+                    onClick: () => setAudience("corporate"),
+                  },
+                ]}
+              />
+            )}
             <button
               onClick={toggle}
               className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-bold font-mono uppercase tracking-wider text-mute hover:text-ink hover:bg-raise transition-colors border border-transparent hover:border-line"
@@ -241,18 +310,36 @@ export default function Layout() {
           <NavLink to="/feed" aria-label="OFFMUTE home">
             <Logo />
           </NavLink>
-          <NavLink
-            to="/notifications"
-            className="relative p-2 text-mute hover:text-ink transition-colors border border-transparent hover:border-line"
-            aria-label="Notifications"
-          >
-            <Bell className="size-5" />
-            {unread > 0 && (
-              <span className="absolute top-0 right-0 min-w-4 h-4 px-1 bg-coral text-white text-[9px] font-bold grid place-items-center border border-black">
-                {unread > 9 ? "9+" : unread}
-              </span>
+          <div className="flex items-center gap-1">
+            {!audienceLocked && (
+              <button
+                onClick={() =>
+                  setAudience(audience === "student" ? "corporate" : "student")
+                }
+                className="p-2 text-mute hover:text-ink transition-colors border border-transparent hover:border-line"
+                title={`Switch to ${audience === "student" ? "corporate" : "student"} mode`}
+                aria-label="Switch audience mode"
+              >
+                {audience === "student" ? (
+                  <GraduationCap className="size-5" />
+                ) : (
+                  <Briefcase className="size-5" />
+                )}
+              </button>
             )}
-          </NavLink>
+            <NavLink
+              to="/notifications"
+              className="relative p-2 text-mute hover:text-ink transition-colors border border-transparent hover:border-line"
+              aria-label="Notifications"
+            >
+              <Bell className="size-5" />
+              {unread > 0 && (
+                <span className="absolute top-0 right-0 min-w-4 h-4 px-1 bg-coral text-white text-[9px] font-bold grid place-items-center border border-black">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </NavLink>
+          </div>
         </header>
 
         {/* Content */}

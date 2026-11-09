@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, ListPlus, Plus, Trash2 } from "lucide-react";
 import { useAuth, useToast } from "@/context/AppProviders";
 import { createPost, fetchCategories, fetchJoinedCommunities } from "@/lib/queries";
+import {
+  audienceConfig,
+  getAudience,
+  STUDENT_CATEGORY_SEEDS,
+  useAudience,
+} from "@/lib/audience";
+import { generateAiReplies } from "@/lib/aiReplies";
 import type { Category, Community } from "@/lib/types";
 import { isValidImageFile } from "@/lib/utils";
 import { Avatar, Badge, Button, Field, Input, Modal, Select, Textarea } from "@/components/ui";
@@ -25,6 +32,7 @@ export default function PostComposer({
 }) {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const audience = useAudience();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<"post" | "poll">("post");
@@ -49,10 +57,29 @@ export default function PostComposer({
     setImagePreview(null);
     setPollQuestion("");
     setPollOptions(["", ""]);
-    fetchCategories().then(setCats).catch(() => {});
+    const allowed = new Set(audienceConfig(audience).categorySlugs);
+    fetchCategories()
+      .then((list) => {
+        const matching = list.filter((c) => allowed.has(c.slug));
+        if (audience === "student") {
+          const present = new Set(matching.map((c) => c.slug));
+          const previews: Category[] = STUDENT_CATEGORY_SEEDS.filter(
+            (s) => !present.has(s.slug)
+          ).map((s, i) => ({
+            id: -i - 1,
+            slug: s.slug,
+            name: s.name,
+            description: s.description,
+          }));
+          setCats([...matching, ...previews]);
+        } else {
+          setCats(matching);
+        }
+      })
+      .catch(() => {});
     fetchJoinedCommunities(profile.id, 24).then(setComms).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCommunityId, profile?.id]);
+  }, [open, initialCommunityId, profile?.id, audience]);
 
   useEffect(() => {
     if (!image) {
@@ -103,11 +130,21 @@ export default function PostComposer({
         communityId,
         imageFile: mode === "post" ? image : null,
         poll: mode === "poll" ? { question: pollQuestion, options: pollOptions } : null,
+        audience,
       });
       toast({ title: "Posted anonymously", desc: "Your real identity stays private.", variant: "ok" });
       onClose();
       onPosted?.(id);
       window.dispatchEvent(new Event("om:posted"));
+
+      // Warm up the thread with a few replies from other anonymous handles.
+      void generateAiReplies({
+        postId: id,
+        body: finalBody,
+        audience: getAudience(),
+        authorHandle: profile.handle,
+        uid: profile.id,
+      });
     } catch (e) {
       console.error("[OFFMUTE] post failed:", e);
       toast({
@@ -156,7 +193,9 @@ export default function PostComposer({
           onChange={(e) => setBody(e.target.value)}
           placeholder={
             mode === "post"
-              ? "What's actually happening at work? (No names, no private data)"
+              ? audience === "student"
+                ? "What's actually happening on campus? (No names, no private data)"
+                : "What's actually happening at work? (No names, no private data)"
               : "Add context for your poll (optional)…"
           }
           className="text-[15px]"
@@ -281,7 +320,9 @@ export default function PostComposer({
 
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs text-mute max-w-[60%] leading-relaxed">
-            Don't name real people, companies, or leak confidential info.
+            {audience === "student"
+              ? "Don't name real people, colleges, or leak private info."
+              : "Don't name real people, companies, or leak confidential info."}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={busy}>

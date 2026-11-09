@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, CornerDownRight, MessageSquareText, Send } from "lucide-react";
@@ -11,6 +11,8 @@ import {
   fetchPostById,
 } from "@/lib/queries";
 import { demoCommentsFor, demoPostById } from "@/lib/demoContent";
+import { aiReplyCount, generateAiReplies, mergeAiComments } from "@/lib/aiReplies";
+import { getAudience } from "@/lib/audience";
 import { timeAgo } from "@/lib/utils";
 import PostCard, { ReportModal } from "@/components/PostCard";
 import { Avatar, Button, ErrorState, Skeleton } from "@/components/ui";
@@ -34,11 +36,18 @@ function CommentRow({
   setReplyingTo: (id: string | null) => void;
 }) {
   const isOwn = uid === comment.user_id;
+  const isAi = !!comment.isAi;
   return (
     <div className={cn("flex gap-3", isReply && "ml-10")}>
-      <Link to={`/profile/${comment.profile?.handle ?? "x"}`} className="mt-0.5">
-        <Avatar handle={comment.profile?.handle} src={comment.profile?.avatar_url} size={isReply ? 30 : 36} />
-      </Link>
+      {isAi ? (
+        <div className="mt-0.5">
+          <Avatar handle={comment.profile?.handle} src={comment.profile?.avatar_url} size={isReply ? 30 : 36} />
+        </div>
+      ) : (
+        <Link to={`/profile/${comment.profile?.handle ?? "x"}`} className="mt-0.5">
+          <Avatar handle={comment.profile?.handle} src={comment.profile?.avatar_url} size={isReply ? 30 : 36} />
+        </Link>
+      )}
       <div className="min-w-0 flex-1">
         <div
           className={cn(
@@ -47,12 +56,18 @@ function CommentRow({
           )}
         >
           <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              to={`/profile/${comment.profile?.handle ?? "x"}`}
-              className="text-[13px] font-semibold hover:text-brand"
-            >
-              {comment.profile?.handle ?? "Anonymous"}
-            </Link>
+            {isAi ? (
+              <span className="text-[13px] font-semibold">
+                {comment.profile?.handle ?? "Anonymous"}
+              </span>
+            ) : (
+              <Link
+                to={`/profile/${comment.profile?.handle ?? "x"}`}
+                className="text-[13px] font-semibold hover:text-brand"
+              >
+                {comment.profile?.handle ?? "Anonymous"}
+              </Link>
+            )}
             <span className="text-[11px] text-mute">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="text-sm mt-1 leading-relaxed whitespace-pre-wrap break-words">{comment.body}</p>
@@ -98,8 +113,10 @@ export default function PostDetailPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const aiExtraRef = useRef(0);
 
-  const isDemoId = !!id && id.startsWith("demo-");
+  const isDemoId =
+    !!id && (id.startsWith("demo-") || id.startsWith("student-"));
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -110,6 +127,7 @@ export default function PostDetailPage() {
         setLoading(false);
         return;
       }
+      aiExtraRef.current = 0;
       setPost(dp);
       setComments(demoCommentsFor(id));
       setLoading(false);
@@ -124,8 +142,22 @@ export default function PostDetailPage() {
         setNotFound(true);
         return;
       }
-      setPost(p);
-      setComments(c);
+      const aiExtra = aiReplyCount(id);
+      aiExtraRef.current = aiExtra;
+      setPost(aiExtra > 0 ? { ...p, commentCount: p.commentCount + aiExtra } : p);
+      setComments(mergeAiComments(id, c));
+
+      // A lonely post by the author gets a small simulated thread so the
+      // product never feels dead while real traffic is still growing.
+      if (p.user_id === profile.id && c.length === 0) {
+        void generateAiReplies({
+          postId: id,
+          body: p.body,
+          audience: getAudience(),
+          authorHandle: profile.handle,
+          uid: profile.id,
+        });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -136,6 +168,26 @@ export default function PostDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const onAiReplies = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { postId?: string } | undefined;
+      if (!id || detail?.postId !== id) return;
+      const extra = aiReplyCount(id);
+      setPost((p) =>
+        p && extra !== aiExtraRef.current
+          ? {
+              ...p,
+              commentCount: Math.max(0, p.commentCount - aiExtraRef.current + extra),
+            }
+          : p
+      );
+      aiExtraRef.current = extra;
+      setComments((prev) => mergeAiComments(id, prev.filter((c) => !c.isAi)));
+    };
+    window.addEventListener("om:ai-replies", onAiReplies);
+    return () => window.removeEventListener("om:ai-replies", onAiReplies);
+  }, [id]);
 
   async function submitComment() {
     if (!profile || !id || !body.trim()) return;
@@ -291,7 +343,7 @@ export default function PostDetailPage() {
               <CommentRow
                 comment={c}
                 uid={profile?.id ?? ""}
-                onReply={isDemoId ? undefined : (pid) => setReplyingTo(pid)}
+                onReply={isDemoId || c.isAi ? undefined : (pid) => setReplyingTo(pid)}
                 onDelete={deleteOne}
                 replyingTo={replyingTo}
                 setReplyingTo={setReplyingTo}

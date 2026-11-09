@@ -13,6 +13,7 @@ import type {
   ReportTarget,
 } from "./types";
 import { FEED_TABS, PAGE_SIZE } from "./types";
+import { getAudience, postMatchesAudience, type Audience } from "./audience";
 import { isUniqueViolation } from "./utils";
 
 /* -------------------------------------------------------------------------- */
@@ -26,6 +27,21 @@ export function friendlyError(msg: string): string {
   if (/new row violates check constraint/i.test(msg))
     return "That input doesn't meet the rules. Please adjust and retry.";
   return msg;
+}
+
+/**
+ * `posts.audience` is added by supabase/audience_migration.sql. Until that
+ * migration runs we fall back to category/community tag filtering.
+ */
+let postsAudienceColumn: boolean | null = null;
+
+async function hasPostsAudienceColumn(): Promise<boolean> {
+  if (postsAudienceColumn !== null) return postsAudienceColumn;
+  const { error } = await supabase.from("posts").select("audience").limit(1);
+  if (!error) postsAudienceColumn = true;
+  else if (/does not exist|schema cache/i.test(error.message))
+    postsAudienceColumn = false;
+  return !!postsAudienceColumn;
 }
 
 const POST_SELECT = `
@@ -112,10 +128,17 @@ export interface FeedResult {
 export async function fetchFeed(
   uid: string,
   tab: string,
-  opts: { communityId?: string | null; offset: number; limit?: number }
+  opts: {
+    communityId?: string | null;
+    offset: number;
+    limit?: number;
+    categorySlug?: string | null;
+    audience?: Audience | null;
+  }
 ): Promise<FeedResult> {
   const limit = opts.limit ?? PAGE_SIZE;
   const tabDef = FEED_TABS.find((t) => t.id === tab);
+  const categorySlug = opts.categorySlug ?? tabDef?.categorySlug ?? null;
 
   let q = supabase
     .from("posts")
@@ -124,17 +147,25 @@ export async function fetchFeed(
 
   if (opts.communityId) {
     q = q.eq("community_id", opts.communityId);
-  } else if (tabDef?.categorySlug) {
+  } else if (categorySlug) {
     const cats = await fetchCategories().catch(() => null);
-    const cat = cats?.find((c) => c.slug === tabDef.categorySlug);
+    const cat = cats?.find((c) => c.slug === categorySlug);
     if (cat) q = q.eq("category_id", cat.id);
   }
+
+  const audience = opts.audience ?? null;
+  const hasAudienceCol = audience ? await hasPostsAudienceColumn() : false;
+  if (hasAudienceCol) q = q.eq("audience", audience);
+  const keepPost = (p: PostItem) =>
+    hasAudienceCol
+      ? true
+      : postMatchesAudience(p, audience) || (audience === "student" && p.user_id === uid);
 
   if (tab === "trending" && !opts.communityId) {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const { data, error } = await q.gte("created_at", weekAgo).range(0, 99);
     if (error) throw new Error(error.message);
-    const items = (data ?? []).map(normalizePost);
+    const items = (data ?? []).map(normalizePost).filter(keepPost);
     items.sort(
       (a, b) =>
         b.likeCount * 3 + b.commentCount * 2 + (b.poll ? 2 : 0) -
@@ -157,10 +188,17 @@ export async function fetchFeed(
 
   const { data, error, count } = await q.range(opts.offset, opts.offset + limit - 1);
   if (error) throw new Error(error.message);
-  const posts: PostItem[] = ((data ?? []) as any[]).map(normalizePost);
+  const posts: PostItem[] = ((data ?? []) as any[]).map(normalizePost).filter(keepPost);
+  // Without the audience column the DB count still includes hidden posts, so
+  // ignore it to let the demo-content fallback fill a student feed.
+  const filteredClientSide = !hasAudienceCol && audience != null;
   return {
     posts,
-    more: count != null ? opts.offset + limit < count : posts.length >= limit,
+    more: filteredClientSide
+      ? posts.length >= limit
+      : count != null
+        ? opts.offset + limit < count
+        : posts.length >= limit,
   };
 }
 
@@ -372,6 +410,7 @@ export interface CreatePostInput {
   communityId?: string | null;
   imageFile?: File | null;
   poll?: { question: string; options: string[] } | null;
+  audience?: Audience | null;
 }
 
 export async function createPost(input: CreatePostInput): Promise<string> {
@@ -381,6 +420,8 @@ export async function createPost(input: CreatePostInput): Promise<string> {
     : null;
   let imageUrl: string | null = null;
   if (input.imageFile) imageUrl = await uploadPostImage(input.uid, input.imageFile);
+  const hasAudienceCol = await hasPostsAudienceColumn();
+  const audience = input.audience ?? getAudience() ?? "corporate";
 
   const { data: rows, error } = await supabase
     .from("posts")
@@ -390,6 +431,7 @@ export async function createPost(input: CreatePostInput): Promise<string> {
       community_id: input.communityId ?? null,
       category_id: categoryId,
       image_url: imageUrl,
+      ...(hasAudienceCol ? { audience } : {}),
     })
     .select("id");
   if (error) throw new Error(friendlyError(error.message));

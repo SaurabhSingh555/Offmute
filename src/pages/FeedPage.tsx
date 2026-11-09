@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Compass, Inbox, PenSquare } from "lucide-react";
 import { useAuth } from "@/context/AppProviders";
 import type { Community, PostItem } from "@/lib/types";
-import { FEED_TABS } from "@/lib/types";
 import {
   fetchFeed,
   fetchJoinedCommunities,
   fetchMyEngagement,
   fetchMyPollVotes,
 } from "@/lib/queries";
+import {
+  getFeedTabs,
+  otherAudienceCommunitySlugs,
+  useAudience,
+} from "@/lib/audience";
+import { applyAiReplyCounts } from "@/lib/aiReplies";
 import PostCard, { CardMotion } from "@/components/PostCard";
 import { requestCompose } from "@/components/PostComposer";
 import { demoPostsFor } from "@/lib/demoContent";
@@ -25,6 +29,8 @@ import { cn } from "@/utils/cn";
 
 export default function FeedPage() {
   const { profile } = useAuth();
+  const audience = useAudience();
+  const tabs = getFeedTabs(audience);
   const [tab, setTab] = useState("foryou");
   const [communityId, setCommunityId] = useState("");
   const [posts, setPosts] = useState<PostItem[]>([]);
@@ -42,8 +48,11 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (!profile) return;
-    fetchJoinedCommunities(profile.id, 30).then(setJoined).catch(() => {});
-  }, [profile?.id]);
+    const hidden = otherAudienceCommunitySlugs(audience);
+    fetchJoinedCommunities(profile.id, 30)
+      .then((list) => setJoined(list.filter((c) => !hidden.has(c.slug))))
+      .catch(() => {});
+  }, [profile?.id, audience]);
 
   const load = useCallback(
     async (reset: boolean) => {
@@ -57,9 +66,12 @@ export default function FeedPage() {
       setError(null);
       try {
         const offset = reset ? 0 : postsRef.current.length;
+        const tabDef = getFeedTabs(audience).find((t) => t.id === tab);
         const res = await fetchFeed(profile.id, tab, {
           communityId: communityId || null,
           offset,
+          categorySlug: tabDef?.categorySlug ?? null,
+          audience,
         });
         const ids = res.posts.map((p) => p.id);
         const [eng, votes] = await Promise.all([
@@ -75,11 +87,11 @@ export default function FeedPage() {
         
         if (reset && res.posts.length === 0 && !res.more) {
           const cSlug = joinedRef.current.find((c) => c.id === communityId)?.slug ?? null;
-          const tabDef2 = FEED_TABS.find((t) => t.id === tab);
           const demos = demoPostsFor({
             tab,
-            categorySlug: tabDef2?.categorySlug,
+            categorySlug: tabDef?.categorySlug,
             communitySlug: cSlug,
+            audience,
           });
           if (demos.length > 0) {
             setPosts(demos);
@@ -89,7 +101,8 @@ export default function FeedPage() {
           }
         }
         setShowingDemos(false);
-        setPosts((prev) => (reset ? res.posts : [...prev, ...res.posts]));
+        const withAi = applyAiReplyCounts(res.posts);
+        setPosts((prev) => (reset ? withAi : [...prev, ...withAi]));
         setMore(res.more);
       } catch (e) {
         if (mySeq === seq.current) setError((e as Error).message);
@@ -100,7 +113,7 @@ export default function FeedPage() {
         }
       }
     },
-    [profile?.id, tab, communityId]
+    [profile?.id, tab, communityId, audience]
   );
 
   useEffect(() => {
@@ -109,9 +122,19 @@ export default function FeedPage() {
 
   useEffect(() => {
     const onPosted = () => load(true);
+    const onAiReplies = () => load(true);
     window.addEventListener("om:posted", onPosted);
-    return () => window.removeEventListener("om:posted", onPosted);
+    window.addEventListener("om:ai-replies", onAiReplies);
+    return () => {
+      window.removeEventListener("om:posted", onPosted);
+      window.removeEventListener("om:ai-replies", onAiReplies);
+    };
   }, [load]);
+
+  useEffect(() => {
+    if (!getFeedTabs(audience).some((t) => t.id === tab)) setTab("foryou");
+    setCommunityId("");
+  }, [audience, tab]);
 
   function onDeleted(id: string) {
     setPosts((prev) => prev.filter((p) => p.id !== id));
@@ -128,7 +151,11 @@ export default function FeedPage() {
       <div className="flex items-end justify-between gap-3 border-b border-line pb-4">
         <div>
           <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Feed</h1>
-          <p className="text-xs font-mono text-mute mt-1 uppercase tracking-wider">What's actually going on at work.</p>
+          <p className="text-xs font-mono text-mute mt-1 uppercase tracking-wider">
+            {audience === "student"
+              ? "What's actually going on around campus."
+              : "What's actually going on at work."}
+          </p>
         </div>
         <Button size="sm" className="shrink-0 hidden sm:inline-flex" onClick={() => requestCompose()}>
           <PenSquare className="size-3.5 mr-1" /> Post
@@ -156,7 +183,7 @@ export default function FeedPage() {
         )}
 
         <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" role="tablist" aria-label="Feed tabs">
-          {FEED_TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               role="tab"

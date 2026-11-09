@@ -504,10 +504,12 @@ export function Menu({
   trigger,
   items,
   align = "end",
+  placement = "bottom",
 }: {
   trigger: ReactNode;
   items: MenuItem[];
   align?: "start" | "end";
+  placement?: "bottom" | "top";
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -537,7 +539,8 @@ export function Menu({
             exit={{ opacity: 0, scale: 0.97, y: -4 }}
             transition={{ duration: 0.13 }}
             className={cn(
-              "absolute z-40 mt-1.5 min-w-44 border border-line bg-surface shadow-xl overflow-hidden py-1 rounded-none",
+              "absolute z-40 min-w-44 border border-line bg-surface shadow-xl overflow-hidden py-1 rounded-none",
+              placement === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5",
               align === "end" ? "right-0" : "left-0"
             )}
           >

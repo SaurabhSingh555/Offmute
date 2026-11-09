@@ -20,6 +20,17 @@ import {
   leaveCommunity,
   searchAll,
 } from "@/lib/queries";
+import {
+  audienceConfig,
+  categoryCommunitySlugs,
+  isPreviewCommunity,
+  otherAudienceCommunitySlugs,
+  postMatchesAudience,
+  previewCommunity,
+  STUDENT_CATEGORY_SEEDS,
+  STUDENT_COMMUNITY_SEEDS,
+  useAudience,
+} from "@/lib/audience";
 import PostCard, { CardMotion } from "@/components/PostCard";
 import {
   Avatar,
@@ -35,10 +46,12 @@ function CommunityCard({
   community,
   joined,
   onToggle,
+  preview = false,
 }: {
   community: Community;
   joined: boolean;
   onToggle: () => void;
+  preview?: boolean;
 }) {
   const restricted = community.is_restricted;
   const memberCount = community.member_count ?? 0;
@@ -49,15 +62,26 @@ function CommunityCard({
           <Hash className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <Link
-            to={`/community/${community.slug}`}
-            className="font-semibold text-[15px] hover:text-brand transition-colors flex items-center gap-1.5"
-          >
-            <span className="truncate">{community.name}</span>
-            {restricted && <Lock className="size-3.5 text-mute shrink-0" />}
-          </Link>
+          {preview ? (
+            <span className="font-semibold text-[15px] flex items-center gap-1.5">
+              <span className="truncate">{community.name}</span>
+              {restricted && <Lock className="size-3.5 text-mute shrink-0" />}
+            </span>
+          ) : (
+            <Link
+              to={`/community/${community.slug}`}
+              className="font-semibold text-[15px] hover:text-brand transition-colors flex items-center gap-1.5"
+            >
+              <span className="truncate">{community.name}</span>
+              {restricted && <Lock className="size-3.5 text-mute shrink-0" />}
+            </Link>
+          )}
           <p className="text-xs text-mute mt-0.5 flex items-center gap-1">
-            {restricted && memberCount <= 1 ? (
+            {preview ? (
+              <span className="inline-flex items-center gap-1 text-brand/80">
+                <Users className="size-3" /> Preview only
+              </span>
+            ) : restricted && memberCount <= 1 ? (
               <span className="inline-flex items-center gap-1">
                 <Users className="size-3" /> Members only
               </span>
@@ -68,20 +92,26 @@ function CommunityCard({
             )}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant={joined ? "outline" : "soft"}
-          onClick={onToggle}
-          className="shrink-0"
-        >
-          {joined ? (
-            <>
-              <Check className="size-3.5" /> Joined
-            </>
-          ) : (
-            "Join"
-          )}
-        </Button>
+        {preview ? (
+          <span className="shrink-0 border border-line px-2.5 py-1 text-[9px] font-bold font-mono uppercase tracking-wider text-mute">
+            Setup
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant={joined ? "outline" : "soft"}
+            onClick={onToggle}
+            className="shrink-0"
+          >
+            {joined ? (
+              <>
+                <Check className="size-3.5" /> Joined
+              </>
+            ) : (
+              "Join"
+            )}
+          </Button>
+        )}
       </div>
       {community.description && (
         <p className="text-[13px] text-mute leading-relaxed line-clamp-2">{community.description}</p>
@@ -93,12 +123,15 @@ function CommunityCard({
 export default function ExplorePage() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const audience = useAudience();
+  const audienceInfo = audienceConfig(audience);
 
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [activeCat, setActiveCat] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
   const [communities, setCommunities] = useState<Community[] | null>(null);
+  const [usingPreview, setUsingPreview] = useState(false);
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<{
     posts: PostItem[];
@@ -115,24 +148,62 @@ export default function ExplorePage() {
   }, [query]);
 
   useEffect(() => {
-    fetchCategories().then(setCats).catch(() => {});
+    const allowed = new Set(audienceInfo.categorySlugs);
+    const buildPreviews = (): Category[] =>
+      audience === "student"
+        ? STUDENT_CATEGORY_SEEDS.map((s, i) => ({
+            id: -i - 1,
+            slug: s.slug,
+            name: s.name,
+            description: s.description,
+          }))
+        : [];
+
+    fetchCategories()
+      .then((list) => {
+        const matching = list.filter((c) => allowed.has(c.slug));
+        const present = new Set(matching.map((c) => c.slug));
+        const previews = buildPreviews().filter((c) => !present.has(c.slug));
+        setCats([...matching, ...previews]);
+      })
+      .catch(() => {
+        if (audience === "student") setCats(buildPreviews());
+      });
     if (profile)
       fetchJoinedCommunities(profile.id, 100)
         .then((c) => setJoinedIds(new Set(c.map((x) => x.id))))
         .catch(() => {});
-  }, [profile?.id]);
+  }, [profile?.id, audienceInfo, audience]);
+
+  useEffect(() => {
+    setActiveCat("");
+  }, [audience]);
 
   useEffect(() => {
     let alive = true;
     setError(null);
     setCommunities(null);
-    fetchCommunities({ slugEquals: activeCat || undefined })
-      .then((c) => alive && setCommunities(c))
+    const hidden = otherAudienceCommunitySlugs(audience);
+    fetchCommunities({ limit: 60 })
+      .then((list) => {
+        if (!alive) return;
+        const matching = list.filter((c) => !hidden.has(c.slug));
+        const present = new Set(matching.map((c) => c.slug));
+        const previews =
+          audience === "student"
+            ? STUDENT_COMMUNITY_SEEDS.filter((s) => !present.has(s.slug)).map(previewCommunity)
+            : [];
+        let combined = [...matching, ...previews];
+        const filterSlugs = categoryCommunitySlugs(audience, activeCat);
+        if (filterSlugs) combined = combined.filter((c) => filterSlugs.has(c.slug));
+        setUsingPreview(previews.length > 0);
+        setCommunities(combined);
+      })
       .catch((e) => alive && setError((e as Error).message));
     return () => {
       alive = false;
     };
-  }, [activeCat]);
+  }, [activeCat, audienceInfo, audience]);
 
   useEffect(() => {
     if (debounced.length < 2) {
@@ -142,17 +213,33 @@ export default function ExplorePage() {
     }
     let alive = true;
     setSearching(true);
+    const hidden = otherAudienceCommunitySlugs(audience);
     searchAll(debounced)
-      .then((r) => alive && setResults(r))
+      .then((r) => {
+        if (!alive) return;
+        setResults({
+          profiles: r.profiles,
+          posts: r.posts.filter((p) => postMatchesAudience(p, audience)),
+          communities: r.communities.filter((c) => !hidden.has(c.slug)),
+        });
+      })
       .catch(() => alive && setResults(null))
       .finally(() => alive && setSearching(false));
     return () => {
       alive = false;
     };
-  }, [debounced]);
+  }, [debounced, audience]);
 
   async function toggleJoin(c: Community) {
     if (!profile) return;
+    if (isPreviewCommunity(c.id)) {
+      toast({
+        title: "Student community is not set up yet",
+        desc: "Run supabase/audience_migration.sql in Supabase, then reload to join.",
+        variant: "info",
+      });
+      return;
+    }
     const wasJoined = joinedIds.has(c.id);
     try {
       if (wasJoined) await leaveCommunity(profile.id, c.id);
@@ -182,7 +269,9 @@ export default function ExplorePage() {
     <div className="space-y-5">
       <div>
         <h1 className="font-display font-bold text-2xl tracking-tight">Explore</h1>
-        <p className="text-sm text-mute mt-0.5">Find communities, people and posts.</p>
+        <p className="text-sm text-mute mt-0.5">
+          Find {audience === "student" ? "campus" : "workplace"} communities, people and posts.
+        </p>
       </div>
 
       <div className="relative">
@@ -293,7 +382,7 @@ export default function ExplorePage() {
             </button>
             {cats.map((c) => (
               <button
-                key={c.slug}
+                key={`${c.id}-${c.slug}`}
                 onClick={() => setActiveCat(c.slug)}
                 className={cn(
                   "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
@@ -304,6 +393,15 @@ export default function ExplorePage() {
               </button>
             ))}
           </div>
+
+          {usingPreview && (
+            <div className="border border-brand/40 bg-brand-soft/40 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-brand leading-relaxed">
+              [ Student communities are previews ]{" "}
+              <span className="text-mute normal-case tracking-normal">
+                Run <b>supabase/audience_migration.sql</b> in Supabase, then reload to join them.
+              </span>
+            </div>
+          )}
 
           {error ? (
             <ErrorState message={error} />
@@ -339,6 +437,7 @@ export default function ExplorePage() {
                     community={c}
                     joined={joinedIds.has(c.id)}
                     onToggle={() => toggleJoin(c)}
+                    preview={isPreviewCommunity(c.id)}
                   />
                 </motion.div>
               ))}

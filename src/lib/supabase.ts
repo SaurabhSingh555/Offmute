@@ -3,7 +3,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 /**
  * OFFMUTE connects to Supabase with exactly two frontend variables:
  *   VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
- * No service-role key, no backend, no third-party API keys.
+ * No service-role key and no backend. The optional Gemini key
+ * (VITE_GEMINI_API_KEY) is only used client-side to draft simulated replies.
  */
 const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
 const envKey =

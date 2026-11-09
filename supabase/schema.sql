@@ -19,9 +19,30 @@ create table if not exists public.profiles (
   handle      text not null unique check (handle ~ '^[A-Za-z][A-Za-z0-9_]{2,23}$'),
   avatar_url  text,
   bio         text default '' check (char_length(bio) <= 160),
+  invite_code text check (invite_code is null or invite_code ~ '^OM[A-Z0-9]{4,10}$'),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists invite_code text;
+
+create unique index if not exists profiles_invite_code_idx
+  on public.profiles (invite_code)
+  where invite_code is not null;
+
+create table if not exists public.referrals (
+  id          uuid primary key default gen_random_uuid(),
+  inviter_id  uuid not null references public.profiles (id) on delete cascade,
+  invited_id  uuid not null unique references public.profiles (id) on delete cascade,
+  code        text not null,
+  points      int not null default 10 check (points between 0 and 1000),
+  created_at  timestamptz not null default now(),
+  constraint referrals_no_self check (inviter_id <> invited_id)
+);
+
+create index if not exists referrals_inviter_idx
+  on public.referrals (inviter_id, created_at desc);
 
 create table if not exists public.categories (
   id          serial primary key,
@@ -60,11 +81,14 @@ create table if not exists public.posts (
   user_id      uuid not null references public.profiles (id) on delete cascade,
   community_id uuid references public.communities (id) on delete set null,
   category_id  int references public.categories (id) on delete set null,
+  audience     text not null default 'corporate' check (audience in ('student', 'corporate')),
   body         text not null check (char_length(body) between 1 and 2000),
   image_url    text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+alter table public.posts add column if not exists audience
+  text not null default 'corporate' check (audience in ('student', 'corporate'));
 
 create table if not exists public.comments (
   id                uuid primary key default gen_random_uuid(),
@@ -175,6 +199,7 @@ create index if not exists posts_created_idx        on public.posts (created_at 
 create index if not exists posts_user_idx           on public.posts (user_id, created_at desc);
 create index if not exists posts_community_idx      on public.posts (community_id, created_at desc);
 create index if not exists posts_category_idx       on public.posts (category_id, created_at desc);
+create index if not exists posts_audience_idx       on public.posts (audience, created_at desc);
 create index if not exists posts_body_trgm_idx      on public.posts using gin (body gin_trgm_ops);
 create index if not exists comments_post_idx        on public.comments (post_id, created_at);
 create index if not exists comments_user_idx        on public.comments (user_id, created_at);
@@ -196,6 +221,24 @@ create index if not exists communities_created_idx  on public.communities (creat
 -- ============================================================================
 -- 3. FUNCTIONS
 -- ============================================================================
+
+-- Invite codes must belong to the inviter they are credited to.
+create or replace function public.validate_referral()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.profiles
+    where id = new.inviter_id and invite_code = new.code
+  ) then
+    raise exception 'Invalid invite code';
+  end if;
+  return new;
+end;
+$$;
 
 -- Pseudonymous handle generator (e.g. SilentPanda47)
 create or replace function public.generate_handle()
@@ -269,6 +312,10 @@ $$;
 drop trigger if exists profiles_touch on public.profiles;
 create trigger profiles_touch before update on public.profiles
   for each row execute function public.touch_updated_at();
+
+drop trigger if exists referrals_validate on public.referrals;
+create trigger referrals_validate before insert on public.referrals
+  for each row execute function public.validate_referral();
 
 drop trigger if exists posts_touch on public.posts;
 create trigger posts_touch before update on public.posts
@@ -542,6 +589,17 @@ create policy "profiles: update own" on public.profiles
 drop policy if exists "profiles: delete own" on public.profiles;
 create policy "profiles: delete own" on public.profiles
   for delete to authenticated using (id = auth.uid());
+
+-- referrals: visible to both sides, claimable only by the invited account
+drop policy if exists "referrals: view own" on public.referrals;
+create policy "referrals: view own" on public.referrals
+  for select to authenticated
+  using (inviter_id = auth.uid() or invited_id = auth.uid());
+
+drop policy if exists "referrals: claim as invited" on public.referrals;
+create policy "referrals: claim as invited" on public.referrals
+  for insert to authenticated
+  with check (invited_id = auth.uid() and inviter_id <> auth.uid());
 
 -- categories: read-only
 drop policy if exists "categories: read" on public.categories;
@@ -1019,7 +1077,12 @@ insert into public.categories (slug, name, description) values
   ('career-advice',          'Career Advice',                 'Switching, leveling, negotiation, growth.'),
   ('night-shift',            'Night Shift Stories',           'For the 2 AM crowd and graveyard shift legends.'),
   ('workplace-stories',      'Workplace Stories',             'Long-form war stories from the cubicle trenches.'),
-  ('questions',              'Anonymous Questions',           'Ask anything work-related. Zero risk, total candor.')
+  ('questions',              'Anonymous Questions',           'Ask anything work-related. Zero risk, total candor.'),
+  ('campus-life',            'Campus Life',                   'Hostel, fests, attendance, friend groups and campus chaos.'),
+  ('exams-placements',       'Exams & Placements',            'Semester exams, aptitude prep, placement season survival.'),
+  ('internships',            'Internships',                   'Finding internships, stipends, first-day nerves and PPOs.'),
+  ('study-hacks',            'Study Hacks',                   'Notes, focus tricks, resources and last-night saves.'),
+  ('campus-confessions',     'Campus Confessions',            'Crushes, canteen stories and things you never told your class.')
 on conflict (slug) do nothing;
 
 insert into public.communities (slug, name, description, is_restricted) values
@@ -1036,7 +1099,12 @@ insert into public.communities (slug, name, description, is_restricted) values
   ('noida-corporate',    'Noida Corporate',                   'Sector 62 energy: cabs, chai, deadlines and monsoon traffic.', false),
   ('bengaluru-tech',     'Bengaluru Tech',                    'Indiranagar to Whitefield: tech life, commutes and filter coffee.', false),
   ('mumbai-corporate',   'Mumbai Corporate',                  'BKC to Lower Parel: corporate life on the island city.', false),
-  ('former-colleagues',  'Former Colleagues',                 'You changed jobs, not your identity. Catch up with people you once worked with.', false)
+  ('former-colleagues',  'Former Colleagues',                 'You changed jobs, not your identity. Catch up with people you once worked with.', false),
+  ('college-life',       'College Life',                      'Campus, hostel, fests, attendance and the everyday chaos of college.', false),
+  ('placements',         'Placements',                        'Placement season, aptitude rounds, interviews and offer stories.', false),
+  ('internships',        'Internships',                       'Internship leads, stipend talk, first-day nerves and PPO wins.', false),
+  ('exam-war-room',      'Exam War Room',                     'Exam prep, study plans, resources and last-minute rescue threads.', false),
+  ('campus-confessions', 'Campus Confessions',                'Anonymous campus stories you would never post with your name. Restricted.', true)
 on conflict (slug) do nothing;
 
 insert into public.community_rules (community_id, content, sort_order)
@@ -1052,7 +1120,12 @@ join (values
   ('corporate-memes', 'Roast the system, not the individuals.', 1),
   ('corporate-memes', 'No hate, no slurs, no targeting protected groups.', 2),
   ('former-colleagues', 'Introduce yourself by what you used to work on, not who you worked for.', 1),
-  ('former-colleagues', 'No poaching or client solicitation.', 2)
+  ('former-colleagues', 'No poaching or client solicitation.', 2),
+  ('campus-confessions', 'Keep it anonymous: never name classmates, teachers or share private info.', 1),
+  ('campus-confessions', 'Confess your own experiences. No targeting or bullying.', 2),
+  ('campus-confessions', 'Support each other. No harassment or doxxing of any kind.', 3),
+  ('exam-war-room', 'Share what actually worked. No paid or pirated material.', 1),
+  ('exam-war-room', 'Be kind to people panicking. Everyone has been there.', 2)
 ) as rule (slug, content, sort_order)
 on rule.slug = c.slug
 where not exists (

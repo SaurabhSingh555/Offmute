@@ -18,6 +18,7 @@ const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const SavedPage = lazy(() => import("@/pages/SavedPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const InvitePage = lazy(() => import("@/pages/InvitePage"));
 const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 
 function FullLoader() {
@@ -73,6 +74,7 @@ export default function App() {
                 <Route path="/profile/:handle" element={<ProfilePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/saved" element={<SavedPage />} />
+                <Route path="/invite" element={<InvitePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
               </Route>

@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BellOff, Heart, MessageCircle, PenSquare, UserPlus } from "lucide-react";
+import {
+  BellOff,
+  Heart,
+  MessageCircle,
+  PenSquare,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
 import { useAuth } from "@/context/AppProviders";
 import type { NotifItem } from "@/lib/types";
 import {
@@ -9,6 +16,11 @@ import {
   markAllNotifsRead,
   markNotifRead,
 } from "@/lib/queries";
+import {
+  localNotifsFor,
+  markAllLocalNotifsRead,
+  markLocalNotifRead,
+} from "@/lib/localNotifs";
 import { timeAgo } from "@/lib/utils";
 import { useUnread } from "@/components/Layout";
 import { Avatar, Button, EmptyState, ErrorState, Skeleton } from "@/components/ui";
@@ -19,6 +31,7 @@ const TYPE_META: Record<NotifItem["type"], { icon: React.ReactNode; text: string
   comment: { icon: <MessageCircle className="size-4 text-brand" />, text: "commented on your post" },
   follow: { icon: <UserPlus className="size-4 text-ok" />, text: "started following you" },
   post: { icon: <PenSquare className="size-4 text-warn" />, text: "posted something new" },
+  ai: { icon: <Sparkles className="size-4 text-brand" />, text: "replied to your post" },
 };
 
 export default function NotificationsPage() {
@@ -33,7 +46,10 @@ export default function NotificationsPage() {
     setError(null);
     try {
       const rows = await fetchNotifications(profile.id, 40);
-      setItems(rows);
+      const local = localNotifsFor(profile.id);
+      setItems(
+        [...local, ...rows].sort((a, b) => b.created_at.localeCompare(a.created_at))
+      );
     } catch (e) {
       setError((e as Error).message);
     }
@@ -45,10 +61,11 @@ export default function NotificationsPage() {
 
   async function markAll() {
     if (!profile) return;
+    markAllLocalNotifsRead(profile.id);
     try {
       await markAllNotifsRead(profile.id);
       setItems((prev) =>
-        prev ? prev.map((n) => ({ ...n, read_at: new Date().toISOString() })) : prev
+        prev ? prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })) : prev
       );
       setUnread(0);
     } catch {
@@ -58,7 +75,8 @@ export default function NotificationsPage() {
 
   function open(n: NotifItem) {
     if (profile && !n.read_at) {
-      markNotifRead(profile.id, n.id).catch(() => {});
+      if (n.type === "ai") markLocalNotifRead(profile.id, n.id);
+      else markNotifRead(profile.id, n.id).catch(() => {});
       setItems((prev) =>
         prev ? prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)) : prev
       );
@@ -121,15 +139,25 @@ export default function NotificationsPage() {
                 )}
               >
                 <span className="relative shrink-0">
-                  <Avatar handle={n.actor?.handle} src={n.actor?.avatar_url} size={38} />
+                  <Avatar
+                    handle={n.actor?.handle ?? "OFFMUTE"}
+                    src={n.actor?.avatar_url}
+                    size={38}
+                  />
                   <span className="absolute -bottom-0.5 -right-0.5 grid place-items-center size-5 rounded-full bg-surface border border-line">
                     {meta.icon}
                   </span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="text-sm leading-snug">
-                    <b>{n.actor?.handle ?? "Someone"}</b> {meta.text}
+                    <b>{n.actor?.handle ?? (n.type === "ai" ? "Your community" : "Someone")}</b>{" "}
+                    {meta.text}
                   </span>
+                  {n.preview && (
+                    <span className="block text-xs text-mute/90 mt-0.5 truncate">
+                      “{n.preview}”
+                    </span>
+                  )}
                   <span className="block text-xs text-mute mt-0.5">{timeAgo(n.created_at)} ago</span>
                 </span>
                 {!n.read_at && <span className="size-2 rounded-full bg-brand shrink-0" />}

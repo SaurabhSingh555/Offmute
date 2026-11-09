@@ -10,7 +10,7 @@ import { cn } from "@/utils/cn";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AuthPage() {
-  const { signIn, signUp, resetPassword, user, loading } = useAuth();
+  const { signIn, signUp, resendConfirmation, resetPassword, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -27,10 +27,43 @@ export default function AuthPage() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState(false);
 
   const next =
     (location.state as { from?: string } | null)?.from ?? params.get("next") ?? "";
   const resetDone = params.get("reset") === "1";
+  const justConfirmed = params.get("confirmed") === "1";
+  const isFileProtocol =
+    typeof window !== "undefined" && window.location.protocol === "file:";
+
+  /* Supabase puts expiry/invalid-link errors in the URL hash (or query). */
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    const hashParams = new URLSearchParams(hash);
+    const message =
+      hashParams.get("error_description") ??
+      hashParams.get("error") ??
+      params.get("error_description") ??
+      params.get("error");
+    if (message) {
+      setError(message.replace(/\+/g, " "));
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search
+      );
+    }
+  }, [params]);
+
+  useEffect(() => {
+    if (!justConfirmed || loading || user) return;
+    setMode("in");
+    setNotice({
+      title: "Email confirmed",
+      desc: "Your email is verified. Sign in with your password.",
+    });
+  }, [justConfirmed, loading, user]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -78,16 +111,35 @@ export default function AuthPage() {
               : res.error
           );
         } else if (res.needsConfirm) {
+          setPendingConfirm(true);
           setNotice({
             title: "Check your inbox",
             desc: "We sent a confirmation link. Once confirmed, sign in here.",
           });
         } else {
+          setPendingConfirm(false);
           afterAuth();
         }
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setError(null);
+    if (!EMAIL_RE.test(email)) return setError("Enter a valid email address.");
+    setResendBusy(true);
+    try {
+      const res = await resendConfirmation(email);
+      if (res.error) setError(res.error);
+      else
+        setNotice({
+          title: "Confirmation email resent",
+          desc: "Check your inbox and spam folder for the new link.",
+        });
+    } finally {
+      setResendBusy(false);
     }
   }
 
@@ -147,6 +199,15 @@ export default function AuthPage() {
                 </p>
               </div>
             )}
+            {pendingConfirm && (
+              <button
+                onClick={resend}
+                disabled={resendBusy}
+                className="mb-4 w-full border border-line bg-raise/40 py-2 text-[10px] font-bold font-mono uppercase tracking-wider text-mute hover:text-ink hover:border-mute transition-colors disabled:opacity-60"
+              >
+                {resendBusy ? "Sending…" : "Resend confirmation email"}
+              </button>
+            )}
 
             {/* Tabs */}
             <div className="flex border border-line mb-5">
@@ -162,6 +223,7 @@ export default function AuthPage() {
                     setMode(m);
                     setError(null);
                     setNotice(null);
+                    setPendingConfirm(false);
                   }}
                   className={cn(
                     "flex-1 h-9 text-[11px] font-bold font-mono uppercase tracking-wider transition-colors",
@@ -219,6 +281,13 @@ export default function AuthPage() {
               {mode === "up" && (
                 <p className="text-[10px] text-mute text-center leading-snug font-mono px-2">
                   We'll auto-generate a handle like <span className="text-brand font-bold">NightShiftFox</span>.
+                </p>
+              )}
+
+              {isFileProtocol && (
+                <p className="text-[10px] leading-snug font-mono text-bad bg-bad/10 border border-bad/30 px-2.5 py-2">
+                  [ LOCAL FILE MODE ] Email confirmation links cannot return to a file:// page. Run{" "}
+                  <b>npm run dev</b> (or deploy) and set that http(s) URL as the Supabase Site URL.
                 </p>
               )}
             </div>

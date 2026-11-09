@@ -5,6 +5,7 @@ import { Check, Hash, Lock, Users } from "lucide-react";
 import { useAuth, useToast } from "@/context/AppProviders";
 import type { Community } from "@/lib/types";
 import { fetchCommunities, joinCommunity } from "@/lib/queries";
+import { otherAudienceCommunitySlugs, useAudience } from "@/lib/audience";
 import { Avatar, Button } from "@/components/ui";
 import { cn } from "@/utils/cn";
 
@@ -12,13 +13,21 @@ export default function OnboardingPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const audience = useAudience();
   const [comms, setComms] = useState<Community[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchCommunities({ limit: 12 }).then(setComms).catch(() => {});
-  }, []);
+    const hidden = otherAudienceCommunitySlugs(audience);
+    fetchCommunities({ limit: 60 })
+      .then((list) => {
+        setComms(list.filter((c) => !hidden.has(c.slug)).slice(0, 12));
+      })
+      .catch(() => setComms([]))
+      .finally(() => setLoaded(true));
+  }, [audience]);
 
   function toggle(id: string) {
     setPicked((prev) => {
@@ -67,10 +76,25 @@ export default function OnboardingPage() {
           Welcome, <span className="text-brand">{profile?.handle}</span>
         </h1>
         <p className="text-sm text-mute mt-2 max-w-sm mx-auto leading-relaxed">
-          Your anonymous identity is live. Pick a few communities to make your For You feed
-          actually about your world — you can change this anytime.
+          Your anonymous identity is live. Pick a few {audience === "student" ? "campus" : ""} communities
+          to make your For You feed actually about your world — you can change this anytime.
         </p>
       </div>
+
+      {loaded && comms.length === 0 && (
+        <div className="mt-8 border border-brand/40 bg-brand-soft/40 px-4 py-3 text-xs leading-relaxed text-mute">
+          <b className="text-brand">
+            {audience === "student" ? "Student" : "Corporate"} communities aren't set up in this
+            project yet.
+          </b>
+          {audience === "student" && (
+            <span className="block mt-1">
+              Run <b>supabase/audience_migration.sql</b> in the Supabase SQL editor, then reload
+              this page. You can also skip and join communities later from Explore.
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 gap-3 mt-8">
         {comms.map((c, i) => {

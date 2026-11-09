@@ -10,6 +10,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Info, X, XCircle } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  audienceFromMetadata,
+  clearAudience,
+  ensureAudienceLockForEmail,
+  getAudience,
+  lockAudienceForEmail,
+} from "@/lib/audience";
+import { clearLocalNotifs, LOCAL_NOTIF_EVENT } from "@/lib/localNotifs";
+import { claimReferral, peekPendingInvite, takePendingInvite } from "@/lib/referrals";
 import type { Profile, UserPrefs } from "@/lib/types";
 import { generateHandle, isUniqueViolation } from "@/lib/utils";
 import { cn } from "@/utils/cn";
@@ -51,6 +60,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     },
     [dismiss]
   );
+
+  useEffect(() => {
+    const onLocalNotif = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { title?: string; desc?: string }
+        | undefined;
+      if (detail?.title) toast({ title: detail.title, desc: detail.desc, variant: "info" });
+    };
+    window.addEventListener(LOCAL_NOTIF_EVENT, onLocalNotif);
+    return () => window.removeEventListener(LOCAL_NOTIF_EVENT, onLocalNotif);
+  }, [toast]);
 
   const value = useMemo(() => ({ toasts, toast, dismiss }), [toasts, toast, dismiss]);
 
@@ -155,6 +175,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<{ needsConfirm: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  resendConfirmation: (email: string) => Promise<{ error?: string }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updateProfile: (
     patch: Partial<Pick<Profile, "handle" | "bio" | "avatar_url">>
@@ -166,6 +187,21 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Where Supabase should send the user after they click the confirmation link.
+ * file:// origins cannot receive email links, so we omit the option there and
+ * let the dashboard Site URL apply instead.
+ */
+function authRedirectUrl(): string | undefined {
+  try {
+    const origin = window.location.origin;
+    if (!origin || origin === "null" || !/^https?:\/\//i.test(origin)) return undefined;
+    return `${origin}/auth?confirmed=1`;
+  } catch {
+    return undefined;
+  }
+}
 
 const DEFAULT_PREFS: UserPrefs = {
   likes_notifs: true,
@@ -179,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const loadProfileOnce = useCallback(async (uid: string): Promise<Profile> => {
     let { data, error } = await supabase
@@ -236,6 +273,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) setAuthError(error.message);
       const session = sessionData.session;
       if (session) {
+        ensureAudienceLockForEmail(
+          session.user.email,
+          audienceFromMetadata(session.user.user_metadata)
+        );
         setUser(session.user);
         loadProfile(session.user.id)
           .then(setProfile)
@@ -249,6 +290,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!alive) return;
       if (session) {
+        ensureAudienceLockForEmail(
+          session.user.email,
+          audienceFromMetadata(session.user.user_metadata)
+        );
         setUser(session.user);
         try {
           setProfile(await loadProfile(session.user.id));
@@ -267,18 +312,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadProfile]);
 
+  /* Redeem an invite code captured from `?invite=CODE` after signup. */
+  useEffect(() => {
+    if (!profile?.id) return;
+    const pending = peekPendingInvite();
+    if (!pending) return;
+    let alive = true;
+    (async () => {
+      const result = await claimReferral(profile.id, pending);
+      if (!alive) return;
+      if (result.ok) {
+        takePendingInvite();
+        toast({
+          title: "Invite accepted",
+          desc: "Your friend just earned invite points. Welcome to OFFMUTE.",
+          variant: "ok",
+        });
+      } else if (!result.retry) {
+        takePendingInvite();
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [profile?.id, toast]);
+
   const signUp = useCallback(
     async (email: string, password: string) => {
+      const redirect = authRedirectUrl();
+      const audience = getAudience() ?? "corporate";
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: {
+          data: { audience },
+          ...(redirect ? { emailRedirectTo: redirect } : {}),
+        },
       });
       if (error) return { needsConfirm: false, error: error.message };
+      lockAudienceForEmail(email, audience);
       return { needsConfirm: !data.session };
     },
     []
   );
+
+  const resendConfirmation = useCallback(async (email: string) => {
+    const redirect = authRedirectUrl();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      ...(redirect ? { options: { emailRedirectTo: redirect } } : {}),
+    });
+    if (error) return { error: error.message };
+    return {};
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -288,8 +375,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    clearLocalNotifs(profile?.id ?? user?.id);
     setProfile(null);
-  }, []);
+    clearAudience();
+  }, [profile?.id, user?.id]);
 
   const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -347,10 +436,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.rpc("offmute_delete_account");
     if (error) return { error: error.message };
     await supabase.auth.signOut();
+    clearLocalNotifs(profile?.id ?? user?.id);
     setUser(null);
     setProfile(null);
+    clearAudience();
     return { authRemoved: (data as { auth_removed?: boolean })?.auth_removed };
-  }, []);
+  }, [profile?.id, user?.id]);
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
@@ -367,6 +458,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      resendConfirmation,
       resetPassword,
       updateProfile,
       getPrefs,
@@ -382,6 +474,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      resendConfirmation,
       resetPassword,
       updateProfile,
       getPrefs,

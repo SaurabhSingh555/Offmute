@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 # OFFMUTE
 
-> **Work has a filter. Here, you can let it out.**
+> **Life has a filter. Here, you can let it out.**
 
-OFFMUTE is an anonymous corporate social platform: workplace confessions, corporate humor,
-career talk, city communities, polls, follows, blocks, reports and live community discussions —
-behind a pseudonymous handle, never a real name.
+OFFMUTE is an anonymous social platform with two modes — **Student** and **Corporate**:
+campus/office confessions, humor, career and placement talk, community discussions, polls,
+follows, blocks and reports — behind a pseudonymous handle, never a real name.
 
 ## Stack
 
@@ -15,15 +14,19 @@ behind a pseudonymous handle, never a real name.
 | Backend | Supabase: Auth, PostgreSQL (+ RLS), Storage, Realtime |
 | Hosting | Any static host (Vercel guide below) |
 
-**The frontend needs exactly two environment variables** — no service-role key, no other
-backend, no third-party API keys:
+**The frontend needs two required environment variables** — no service-role key and no backend:
 
 ```bash
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+
+# Optional: Gemini-generated "community replies" for new posts.
+VITE_GEMINI_API_KEY=
+VITE_GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
-A copy lives in [`.env.example`](.env.example).
+A copy lives in [`.env.example`](.env.example). The Gemini key is optional; without it the app
+works normally, just without simulated replies.
 
 ## Quickstart
 
@@ -31,8 +34,11 @@ A copy lives in [`.env.example`](.env.example).
 2. **Run the migration**: Dashboard → *SQL Editor* → *New query* → paste the entire
    [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
    This creates all tables, indexes, constraints, triggers, RLS policies, storage buckets and
-   policies, the realtime publication, grants, and seed data (12 categories, 14 communities).
+   policies, the realtime publication, grants, and seed data (17 categories, 19 communities).
    It is idempotent — safe to re-run.
+   - **Upgrading an existing project?** Also run
+     [`supabase/audience_migration.sql`](supabase/audience_migration.sql) to add the Student
+     categories and communities. It is idempotent too.
 3. **One-time dashboard checks** (SQL cannot do these for you):
    - *Authentication → Sign In / Up → Email*: enabled.
    - *Authentication → URL Configuration*: **Site URL** = your app URL; add the same URL to
@@ -130,11 +136,41 @@ trigger exceptions above — verify them with the snippets in your own project.
 - [ ] Change handle / bio / avatar → reflected everywhere
 - [ ] Delete account → everything gone, sign-out forced
 
+## Audience modes (Student / Corporate)
+
+The landing page asks whether you are a student or working professional and stores the choice in
+`localStorage` (`src/lib/audience.ts`). The choice drives:
+
+- the landing hero/features/steps and sample posts,
+- the feed tabs (student tabs: Campus Life, Exams & Placements, Internships, Study Hacks,
+  Campus Confessions),
+- the categories shown in the composer and Explore,
+- the communities offered during onboarding,
+- the voice used by the Gemini reply generator.
+
+You can switch modes anytime from the landing header, the desktop sidebar, or the mobile header.
+Default is Corporate when nothing is chosen.
+
+## Simulated community replies (optional, Gemini)
+
+New posts can be seeded with a few short replies from different anonymous handles so the thread
+does not feel dead (`src/lib/aiReplies.ts` + `src/lib/gemini.ts`).
+
+- Runs only when `VITE_GEMINI_API_KEY` is set; model defaults to `gemini-3.1-flash-lite`.
+- Replies are **client-side only** (cached in `localStorage` under `om-ai-replies`). They are not
+  written to Supabase, because RLS correctly forbids posting as other users.
+- The author's own empty post generates replies on creation and again the first time it is opened.
+- AI replies are merged into the post detail thread and counted on feed cards, but cannot be
+  replied to or deleted, and have no profile links.
+- **Security note:** this is a static app, so the key ships in the browser bundle. For a public
+  launch, proxy Gemini through a serverless function and keep the key server-side.
+
 ## Sample content (so new signups never see a blank feed)
 
 No separate demo accounts exist in your database. Instead, the app ships a **client-side sample
-catalog** (`src/lib/demoContent.ts`): ~40 realistic, hardcoded posts with comments and polls.
+catalog** (`src/lib/demoContent.ts`): ~40 corporate and ~14 student posts with comments and polls.
 
+- Sample posts are filtered by the selected audience and by feed context.
 - Whenever a feed context is **empty** (Latest / For You / Trending / any category tab / any
   community), the sample posts for that context are shown in place of an empty state.
 - The moment **real posts** exist in that context, they replace the samples — samples never mix
@@ -143,7 +179,7 @@ catalog** (`src/lib/demoContent.ts`): ~40 realistic, hardcoded posts with commen
   persist in your browser (localStorage) so the experience feels interactive, but nothing is
   written to the database and no demo users exist (search, profiles and notifications are
   unaffected).
-- Sample post links (`/post/demo-…`) render fully with their sample comments.
+- Sample post links (`/post/demo-…` and `/post/student-…`) render fully with their sample comments.
 
 To change or remove the sample content, edit `src/lib/demoContent.ts`.
 
@@ -162,14 +198,16 @@ To change or remove the sample content, edit `src/lib/demoContent.ts`.
 ## Project structure
 
 ```
-supabase/schema.sql        # full migration: tables, RLS, triggers, storage, seed
-src/lib/supabase.ts        # client (2 env vars only)
-src/lib/queries.ts         # every Supabase query, typed + bounded
-src/context/AppProviders.tsx  # auth + theme + toasts
-src/components/            # design system, layout, post card, composer
-src/pages/                 # route pages (lazy-loaded)
-src/lib/__tests__/         # vitest unit tests
+supabase/schema.sql             # full migration: tables, RLS, triggers, storage, seed
+supabase/audience_migration.sql # additive Student categories/communities (existing projects)
+src/lib/supabase.ts             # client (Supabase env vars)
+src/lib/audience.ts             # Student/Corporate modes, tabs and config
+src/lib/queries.ts              # every Supabase query, typed + bounded
+src/lib/demoContent.ts          # client-side sample catalog
+src/lib/gemini.ts               # optional Gemini REST client
+src/lib/aiReplies.ts            # simulated reply generation/cache/merge
+src/context/AppProviders.tsx    # auth + theme + toasts
+src/components/                 # design system, layout, post card, composer
+src/pages/                      # route pages (lazy-loaded)
+src/lib/__tests__/              # vitest unit tests
 ```
-=======
-# Offmute
->>>>>>> 864453dfd4d26f67e4530f0c9c3552d87685c5c9

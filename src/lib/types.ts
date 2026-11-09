@@ -73,9 +73,11 @@ export type CommentItem = {
   parent_comment_id: string | null;
   profile: { handle: string; avatar_url: string | null } | null;
   replies: CommentItem[];
+  /** Locally generated community reply (never persisted in the database). */
+  isAi?: boolean;
 };
 
-export type NotifType = "like" | "comment" | "follow" | "post";
+export type NotifType = "like" | "comment" | "follow" | "post" | "ai";
 
 export interface NotifItem {
   id: string;
@@ -87,6 +89,9 @@ export interface NotifItem {
   comment_id: string | null;
   community_id: string | null;
   community: { slug: string } | null;
+  /** Local-only AI reply notifications: first reply preview + batch size. */
+  preview?: string | null;
+  count?: number;
 }
 
 export interface ChatMsg {
