@@ -61,8 +61,6 @@ export type PostItem = {
   bookmarked: boolean;
   poll: PollData | null;
   myPollVote: string | null;
-  /** Client-side sample content (never exists in the database). */
-  isDemo?: boolean;
 };
 
 export type CommentItem = {
@@ -143,9 +141,7 @@ export const FEED_TABS: FeedTabDef[] = [
   { id: "latest", label: "Latest" },
   { id: "trending", label: "Trending" },
   { id: "cat-confessions", label: "Confessions", categorySlug: "office-confessions" },
-  { id: "cat-humor", label: "Corporate Humor", categorySlug: "corporate-memes" },
   { id: "cat-career", label: "Career Talk", categorySlug: "career-advice" },
-  { id: "cat-stories", label: "Workplace Stories", categorySlug: "workplace-stories" },
   { id: "cat-questions", label: "Ask Anonymously", categorySlug: "questions" },
 ];
 

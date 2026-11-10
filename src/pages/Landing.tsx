@@ -7,6 +7,7 @@ import {
   Briefcase,
   Check,
   Gauge,
+  Gift,
   GraduationCap,
   Heart,
   Lock,
@@ -17,6 +18,7 @@ import {
 import { useAuth } from "@/context/AppProviders";
 import { Avatar, Button, Logo, Modal } from "@/components/ui";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { peekPendingInvite } from "@/lib/referrals";
 import {
   AUDIENCES,
   audienceConfig,
@@ -299,6 +301,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const audience = useAudience();
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [invitedBy, setInvitedBy] = useState<string | null>(null);
   const audienceLocked = !!lockedAudienceForEmail(user?.email);
   const cfg = audienceConfig(audience);
   const isStudent = audience === "student";
@@ -310,6 +313,11 @@ export default function Landing() {
   useEffect(() => {
     if (!audience && !audienceLocked) setChooserOpen(true);
   }, [audience, audienceLocked]);
+
+  useEffect(() => {
+    if (!user) setInvitedBy(peekPendingInvite());
+    else setInvitedBy(null);
+  }, [user]);
 
   const go = (path: string) => navigate(user ? (path === "/auth" ? "/feed" : path) : path);
 
@@ -354,6 +362,27 @@ export default function Landing() {
             )}
           </nav>
         </header>
+
+        {/* Invite banner */}
+        {invitedBy && (
+          <div className="max-w-6xl mx-auto px-5 pt-3">
+            <div className="flex items-center gap-3 rounded-xl border border-brand/40 bg-brand-soft/60 px-4 py-2.5">
+              <Gift className="size-4 text-brand shrink-0" />
+              <p className="text-xs sm:text-sm font-semibold flex-1 min-w-0">
+                You're invited to OFFMUTE —{" "}
+                <span className="font-mono text-brand">{invitedBy}</span> earns points the moment
+                you join.
+              </p>
+              <Button
+                size="sm"
+                className="shrink-0"
+                onClick={() => navigate(user ? "/feed" : "/auth?mode=up")}
+              >
+                {user ? "Open app" : "Join now"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Hero */}
         <section className="max-w-6xl mx-auto px-5 pt-16 lg:pt-24 pb-20 grid lg:grid-cols-2 gap-12 items-center relative">

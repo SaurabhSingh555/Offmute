@@ -20,6 +20,7 @@ const SavedPage = lazy(() => import("@/pages/SavedPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const InvitePage = lazy(() => import("@/pages/InvitePage"));
 const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
+const WarRoomPage = lazy(() => import("@/pages/WarRoomPage"));
 
 function FullLoader() {
   return (
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/saved" element={<SavedPage />} />
                 <Route path="/invite" element={<InvitePage />} />
+                <Route path="/warroom" element={<WarRoomPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
               </Route>

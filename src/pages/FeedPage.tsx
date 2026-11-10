@@ -16,8 +16,8 @@ import {
 } from "@/lib/audience";
 import { applyAiReplyCounts } from "@/lib/aiReplies";
 import PostCard, { CardMotion } from "@/components/PostCard";
+import RecentActivity from "@/components/RecentActivity";
 import { requestCompose } from "@/components/PostComposer";
-import { demoPostsFor } from "@/lib/demoContent";
 import {
   Button,
   EmptyState,
@@ -39,9 +39,6 @@ export default function FeedPage() {
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<Community[]>([]);
-  const [showingDemos, setShowingDemos] = useState(false);
-  const joinedRef = useRef<Community[]>([]);
-  joinedRef.current = joined;
   const postsRef = useRef<PostItem[]>([]);
   postsRef.current = posts;
   const seq = useRef(0);
@@ -84,23 +81,7 @@ export default function FeedPage() {
           p.myPollVote = p.poll ? (votes.get(p.poll.id) ?? null) : null;
         });
         if (mySeq !== seq.current) return;
-        
-        if (reset && res.posts.length === 0 && !res.more) {
-          const cSlug = joinedRef.current.find((c) => c.id === communityId)?.slug ?? null;
-          const demos = demoPostsFor({
-            tab,
-            categorySlug: tabDef?.categorySlug,
-            communitySlug: cSlug,
-            audience,
-          });
-          if (demos.length > 0) {
-            setPosts(demos);
-            setMore(false);
-            setShowingDemos(true);
-            return;
-          }
-        }
-        setShowingDemos(false);
+
         const withAi = applyAiReplyCounts(res.posts);
         setPosts((prev) => (reset ? withAi : [...prev, ...withAi]));
         setMore(res.more);
@@ -147,6 +128,9 @@ export default function FeedPage() {
 
   return (
     <div className="space-y-6">
+      {/* Live ticker: who just posted */}
+      <RecentActivity />
+
       {/* Header */}
       <div className="flex items-end justify-between gap-3 border-b border-line pb-4">
         <div>
@@ -204,12 +188,6 @@ export default function FeedPage() {
           ))}
         </div>
       </div>
-
-      {showingDemos && !loading && !error && (
-        <p className="text-center text-[10px] font-mono text-mute uppercase tracking-widest border border-line bg-surface py-2">
-          [ Sample posts while feed fills up ]
-        </p>
-      )}
 
       {/* Content Area */}
       {loading ? (

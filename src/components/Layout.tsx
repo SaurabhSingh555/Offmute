@@ -11,6 +11,7 @@ import {
   Bookmark,
   Briefcase,
   Compass,
+  Flame,
   Gift,
   GraduationCap,
   Hash,
@@ -20,12 +21,14 @@ import {
   PenSquare,
   Settings,
   Sun,
+  Swords,
   TriangleAlert,
   UserRound,
 } from "lucide-react";
 import { useAuth, useTheme } from "@/context/AppProviders";
 import { supabase } from "@/lib/supabase";
 import { fetchJoinedCommunities, fetchUnreadCount } from "@/lib/queries";
+import { fetchMyScore } from "@/lib/score";
 import { LOCAL_NOTIF_EVENT, localUnreadCount } from "@/lib/localNotifs";
 import {
   audienceConfig,
@@ -96,8 +99,30 @@ export default function Layout() {
   const [sideComms, setSideComms] = useState<Community[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerCommunity, setComposerCommunity] = useState<string | null>(null);
+  const [score, setScore] = useState<number | null>(null);
+  const [streak, setStreak] = useState(0);
 
   const uid = profile?.id;
+
+  /* Snapchat-style score (refreshed when posts/comments happen). */
+  useEffect(() => {
+    if (!uid) return;
+    let alive = true;
+    const load = () =>
+      fetchMyScore(uid)
+        .then((s) => {
+          if (!alive) return;
+          setScore(s.total);
+          setStreak(s.streak);
+        })
+        .catch(() => {});
+    load();
+    window.addEventListener("om:posted", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("om:posted", load);
+    };
+  }, [uid]);
 
   /* Composer global event */
   useEffect(() => {
@@ -174,6 +199,7 @@ export default function Layout() {
           <nav className="mt-6 flex-1 overflow-y-auto space-y-1" aria-label="Primary">
             <NavItem to="/feed" icon={<Home className="size-4.5" />} label="Feed" />
             <NavItem to="/explore" icon={<Compass className="size-4.5" />} label="Explore" />
+            <NavItem to="/warroom" icon={<Swords className="size-4.5" />} label="War Room" />
             <NavItem
               to="/notifications"
               icon={<Bell className="size-4.5" />}
@@ -275,7 +301,15 @@ export default function Layout() {
                 <Avatar handle={profile.handle} src={profile.avatar_url} size={34} />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold font-mono truncate">{profile.handle}</p>
-                  <p className="text-[10px] text-mute font-mono uppercase tracking-tighter truncate">Anonymous identity</p>
+                  <NavLink
+                    to="/invite"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold font-mono uppercase tracking-tighter text-coral hover:underline"
+                    title="Your OFFMUTE score"
+                  >
+                    <Flame className="size-3" />
+                    {score ?? "—"} score
+                    {streak > 0 && <span className="text-mute">· {streak}d streak</span>}
+                  </NavLink>
                 </div>
                 <Menu
                   trigger={
@@ -371,18 +405,19 @@ export default function Layout() {
 
         {/* Mobile bottom nav */}
         <nav
-          className="lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 items-center border-t border-line bg-surface px-2 pb-[env(safe-area-inset-bottom)]"
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-6 items-center border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)]"
           aria-label="Mobile"
         >
           {[
             { to: "/feed", icon: <Home className="size-5" />, label: "Feed" },
             { to: "/explore", icon: <Compass className="size-5" />, label: "Explore" },
+            { to: "/warroom", icon: <Swords className="size-5" />, label: "War" },
             { fab: true },
             { to: "/saved", icon: <Bookmark className="size-5" />, label: "Saved" },
             {
               to: profile ? `/profile/${profile.handle}` : "/feed",
               icon: <UserRound className="size-5" />,
-              label: "Profile",
+              label: "You",
             },
           ].map((item, i) =>
             "fab" in item && item.fab ? (

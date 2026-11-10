@@ -29,11 +29,6 @@ import {
   updatePostBody,
 } from "@/lib/queries";
 import {
-  castDemoPollVote,
-  toggleDemoLike,
-  toggleDemoSaved,
-} from "@/lib/demoContent";
-import {
   Avatar,
   Badge,
   Button,
@@ -119,7 +114,7 @@ export function ReportModal({
 
 /* --------------------------------- Poll ----------------------------------- */
 
-function PollView({ post, uid, demo = false }: { post: PostItem; uid: string; demo?: boolean }) {
+function PollView({ post, uid }: { post: PostItem; uid: string }) {
   const poll = post.poll!;
   const [opts, setOpts] = useState(poll.options);
   const [myVote, setMyVote] = useState<string | null>(post.myPollVote);
@@ -130,20 +125,6 @@ function PollView({ post, uid, demo = false }: { post: PostItem; uid: string; de
 
   async function vote(optionId: string) {
     if (busy) return;
-    if (demo) {
-      const prevMine = myVote;
-      castDemoPollVote(poll.id, optionId);
-      setMyVote(optionId);
-      setOpts((cur) =>
-        cur.map((o) => {
-          let v = o.votes;
-          if (o.id === optionId) v += 1;
-          if (prevMine && o.id === prevMine && prevMine !== optionId) v -= 1;
-          return { ...o, votes: v };
-        })
-      );
-      return;
-    }
     setBusy(true);
     try {
       const prevMine = myVote;
@@ -220,7 +201,6 @@ export default function PostCard({
   const { toast } = useToast();
   const uid = profile?.id ?? "";
   const isOwn = profile?.id === post.user_id;
-  const demo = !!post.isDemo;
 
   const [liked, setLiked] = useState(post.liked);
   const [likeCount, setLikeCount] = useState(post.likeCount);
@@ -238,14 +218,10 @@ export default function PostCard({
 
   const handle = post.profile?.handle ?? "Anonymous";
   const longBody = post.body.length > 320;
-  const displayLikes = demo ? post.likeCount + (liked ? 1 : 0) : likeCount;
+  const displayLikes = likeCount;
 
   async function onLike() {
     if (likeBusy) return;
-    if (demo) {
-      setLiked(toggleDemoLike(post.id));
-      return;
-    }
     if (!uid) return;
     const prevL = liked;
     const prevC = likeCount;
@@ -264,11 +240,6 @@ export default function PostCard({
   }
 
   async function onBookmark() {
-    if (demo) {
-      setSaved(toggleDemoSaved(post.id));
-      toast({ title: saved ? "Removed from saved" : "Saved", variant: "info" });
-      return;
-    }
     if (!uid) return;
     const prev = saved;
     setSaved(!prev);
@@ -339,9 +310,7 @@ export default function PostCard({
   }
 
   const menuItems = [
-    ...(demo
-      ? []
-      : isOwn
+    ...(isOwn
       ? [
           { label: "Edit post", icon: <PenLine className="size-4" />, onClick: () => setEditing(true) },
           { label: "Delete post", icon: <Trash2 className="size-4" />, onClick: () => setConfirmDelete(true), danger: true },
@@ -381,7 +350,6 @@ export default function PostCard({
             <span className="text-[10px] font-mono text-mute uppercase" title={fullDate(post.created_at)}>
               {timeAgo(post.created_at)}
             </span>
-            {demo && <Badge tone="neutral" className="text-[9px] py-0 px-1">sample</Badge>}
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {post.community && (
@@ -465,7 +433,7 @@ export default function PostCard({
       )}
 
       {/* Poll */}
-      {post.poll && <PollView post={post} uid={uid} demo={demo} />}
+      {post.poll && <PollView post={post} uid={uid} />}
 
       {/* Actions */}
       <div className="flex items-center gap-1 mt-4 pt-3 border-t border-line/50">

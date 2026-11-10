@@ -37,7 +37,6 @@ import {
 } from "@/lib/queries";
 import PostCard, { CardMotion } from "@/components/PostCard";
 import { requestCompose } from "@/components/PostComposer";
-import { demoPostsForCommunity } from "@/lib/demoContent";
 import {
   Avatar,
   Badge,
@@ -248,7 +247,6 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [more, setMore] = useState(false);
-  const [showingDemos, setShowingDemos] = useState(false);
   const [rules, setRules] = useState<CommunityRule[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
@@ -301,17 +299,6 @@ export default function CommunityPage() {
           res.posts.filter((p) => p.poll).map((p) => p.poll!.id)
         );
         res.posts.forEach((p) => (p.myPollVote = p.poll ? votes.get(p.poll.id) ?? null : null));
-        // Empty community → client-side samples until real posts exist.
-        if (reset && res.posts.length === 0 && !res.more) {
-          const demos = demoPostsForCommunity(detail?.community.slug ?? "");
-          if (demos.length > 0) {
-            setPosts(demos);
-            setMore(false);
-            setShowingDemos(true);
-            return;
-          }
-        }
-        setShowingDemos(false);
         setPosts((prev) => (reset ? res.posts : [...prev, ...res.posts]));
         setMore(res.more);
       } catch (e) {
@@ -531,19 +518,6 @@ export default function CommunityPage() {
           <div className="space-y-4">
             <PostSkeleton />
             <PostSkeleton />
-          </div>
-        ) : showingDemos ? (
-          <div>
-            <p className="text-center text-[11px] text-mute mb-3">
-              Sample posts while this community fills up — real posts take over automatically.
-            </p>
-            <div className="space-y-4">
-              {posts.map((p, i) => (
-                <CardMotion key={p.id} index={i % 6}>
-                  <PostCard post={p} showCategory={false} />
-                </CardMotion>
-              ))}
-            </div>
           </div>
         ) : posts.length === 0 ? (
           <div className="rounded-2xl border border-line bg-surface">

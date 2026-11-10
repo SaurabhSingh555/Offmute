@@ -3,7 +3,6 @@ import { BookmarkX } from "lucide-react";
 import { useAuth } from "@/context/AppProviders";
 import type { PostItem } from "@/lib/types";
 import { fetchSavedPosts } from "@/lib/queries";
-import { ALL_DEMO_POSTS, demoSavedIds, withDemoEngagement } from "@/lib/demoContent";
 import PostCard, { CardMotion } from "@/components/PostCard";
 import { Button, EmptyState, ErrorState, PostSkeleton } from "@/components/ui";
 
@@ -24,13 +23,7 @@ export default function SavedPage() {
       try {
         const offset = reset ? 0 : posts.length;
         const res = await fetchSavedPosts(profile.id, offset);
-        // Sample posts saved from the feed are stored in this browser only.
-        const demoSaved = withDemoEngagement(
-          ALL_DEMO_POSTS.filter((p) => demoSavedIds().has(p.id))
-        );
-        setPosts((prev) =>
-          reset ? [...demoSaved, ...res.posts] : [...prev, ...res.posts]
-        );
+        setPosts((prev) => (reset ? res.posts : [...prev, ...res.posts]));
         setMore(res.more);
       } catch (e) {
         setError((e as Error).message);

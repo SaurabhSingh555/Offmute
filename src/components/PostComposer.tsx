@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, ListPlus, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, ListPlus, Plus, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { useAuth, useToast } from "@/context/AppProviders";
 import { createPost, fetchCategories, fetchJoinedCommunities } from "@/lib/queries";
 import {
@@ -9,6 +9,8 @@ import {
   useAudience,
 } from "@/lib/audience";
 import { generateAiReplies } from "@/lib/aiReplies";
+import { polishPostDraft } from "@/lib/aiBoost";
+import { isGeminiConfigured } from "@/lib/gemini";
 import type { Category, Community } from "@/lib/types";
 import { isValidImageFile } from "@/lib/utils";
 import { Avatar, Badge, Button, Field, Input, Modal, Select, Textarea } from "@/components/ui";
@@ -46,6 +48,8 @@ export default function PostComposer({
   const [cats, setCats] = useState<Category[]>([]);
   const [comms, setComms] = useState<Community[]>([]);
   const [busy, setBusy] = useState(false);
+  const [polishing, setPolishing] = useState(false);
+  const [prePolish, setPrePolish] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -99,6 +103,25 @@ export default function PostComposer({
       return;
     }
     setImage(file);
+  }
+
+  async function aiPolish() {
+    if (polishing || !body.trim()) return;
+    setPolishing(true);
+    try {
+      const polished = await polishPostDraft(body, audience);
+      if (polished && polished !== body.trim()) {
+        setPrePolish(body);
+        setBody(polished);
+        toast({ title: "Polished by AI", desc: "More hook, same voice. Undo if you prefer yours.", variant: "ok" });
+      } else {
+        toast({ title: "AI couldn't improve it", desc: "Your draft already looks strong.", variant: "info" });
+      }
+    } catch {
+      toast({ title: "AI polish failed", desc: "Post your original — it's still good.", variant: "bad" });
+    } finally {
+      setPolishing(false);
+    }
   }
 
   const pollOpts = pollOptions.map((o) => o.trim()).filter(Boolean);
@@ -201,7 +224,28 @@ export default function PostComposer({
           className="text-[15px]"
           autoFocus
         />
-        <div className="flex justify-end -mt-2">
+        <div className="flex items-center justify-end gap-2 -mt-2">
+          {isGeminiConfigured && mode === "post" && body.trim().length >= 15 && (
+            prePolish !== null ? (
+              <button
+                onClick={() => {
+                  setBody(prePolish);
+                  setPrePolish(null);
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold font-mono uppercase tracking-wider text-mute hover:text-ink"
+              >
+                <Undo2 className="size-3" /> Undo AI
+              </button>
+            ) : (
+              <button
+                onClick={aiPolish}
+                disabled={polishing}
+                className="inline-flex items-center gap-1 text-[11px] font-bold font-mono uppercase tracking-wider text-brand hover:underline disabled:opacity-50"
+              >
+                <Sparkles className="size-3" /> {polishing ? "Polishing…" : "AI boost"}
+              </button>
+            )
+          )}
           <span className="text-xs text-mute tabular-nums">{body.length}/2000</span>
         </div>
 

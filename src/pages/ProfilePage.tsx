@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   AtSign,
   Camera,
+  Flame,
   Hash,
   Pencil,
   ShieldBan,
@@ -23,6 +24,7 @@ import {
   toggleFollow,
   uploadAvatar,
 } from "@/lib/queries";
+import { fetchMyScore, scoreLevel, SCORE_RULES, STREAK_BONUS_PER_DAY, type MyScore } from "@/lib/score";
 import { handleIsValid, isValidImageFile, timeAgo } from "@/lib/utils";
 import PostCard, { CardMotion, ReportModal } from "@/components/PostCard";
 import {
@@ -205,8 +207,20 @@ export default function ProfilePage() {
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [score, setScore] = useState<MyScore | null>(null);
 
   const isMe = !!me && !!data && me.id === data.id;
+
+  useEffect(() => {
+    if (!isMe || !me) return;
+    let alive = true;
+    fetchMyScore(me.id)
+      .then((s) => alive && setScore(s))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isMe, me?.id]);
 
   const load = useCallback(async () => {
     if (!handle) return;
@@ -394,6 +408,72 @@ export default function ProfilePage() {
           </div>
         )}
       </motion.div>
+
+      {/* OFFMUTE score (own profile only) */}
+      {isMe && (
+        <div className="rounded-2xl border border-line bg-surface p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[11px] font-bold font-mono uppercase tracking-widest text-mute flex items-center gap-1.5">
+                <Flame className="size-3.5 text-coral" /> OFFMUTE score
+              </p>
+              <div className="flex items-end gap-2 mt-1.5">
+                <span className="font-display text-4xl font-bold leading-none tracking-tight">
+                  {score?.total ?? "—"}
+                </span>
+                {score && (
+                  <span className="text-xs font-bold font-mono uppercase tracking-wider text-brand bg-brand-soft rounded-full px-2 py-0.5 mb-0.5">
+                    {scoreLevel(score.total).label}
+                  </span>
+                )}
+              </div>
+            </div>
+            {score && score.streak > 0 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-coral/40 bg-coral-soft px-3 py-2">
+                <Flame className="size-4 text-coral" />
+                <span className="text-sm font-bold">{score.streak}-day streak</span>
+                <span className="text-[10px] font-mono text-mute">+{score.streak * STREAK_BONUS_PER_DAY}</span>
+              </div>
+            )}
+          </div>
+
+          {score && (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
+                {SCORE_RULES.map((rule) => {
+                  const count = score.breakdown[rule.key];
+                  return (
+                    <div key={rule.key} className="rounded-lg border border-line bg-raise/50 px-3 py-2">
+                      <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-mute truncate">
+                        {rule.label}
+                      </p>
+                      <p className="text-sm font-semibold mt-0.5">
+                        {count} <span className="text-mute font-normal text-xs">× {rule.per} = {count * rule.per}</span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const lvl = scoreLevel(score.total);
+                if (lvl.next <= lvl.min) return null;
+                const pct = Math.min(100, Math.round(((score.total - lvl.min) / (lvl.next - lvl.min)) * 100));
+                return (
+                  <div className="mt-4">
+                    <div className="flex justify-between text-[10px] font-bold font-mono uppercase tracking-widest text-mute mb-1.5">
+                      <span>{lvl.label}</span>
+                      <span>{lvl.next - score.total} pts to next level</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-raise overflow-hidden border border-line">
+                      <div className="h-full bg-brand transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Posts */}
       <div>

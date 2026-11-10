@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, CornerDownRight, MessageSquareText, Send } from "lucide-react";
+import { ArrowLeft, CornerDownRight, MessageSquareText, Send, Sparkles } from "lucide-react";
 import { useAuth, useToast } from "@/context/AppProviders";
 import type { CommentItem, PostItem } from "@/lib/types";
 import {
@@ -10,8 +10,9 @@ import {
   fetchComments,
   fetchPostById,
 } from "@/lib/queries";
-import { demoCommentsFor, demoPostById } from "@/lib/demoContent";
 import { aiReplyCount, generateAiReplies, mergeAiComments } from "@/lib/aiReplies";
+import { engagementRescue } from "@/lib/aiBoost";
+import { isGeminiConfigured } from "@/lib/gemini";
 import { getAudience } from "@/lib/audience";
 import { timeAgo } from "@/lib/utils";
 import PostCard, { ReportModal } from "@/components/PostCard";
@@ -113,26 +114,12 @@ export default function PostDetailPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [tips, setTips] = useState<string[] | null>(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
   const aiExtraRef = useRef(0);
-
-  const isDemoId =
-    !!id && (id.startsWith("demo-") || id.startsWith("student-"));
 
   const load = useCallback(async () => {
     if (!id) return;
-    if (isDemoId) {
-      const dp = demoPostById(id);
-      if (!dp) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      aiExtraRef.current = 0;
-      setPost(dp);
-      setComments(demoCommentsFor(id));
-      setLoading(false);
-      return;
-    }
     if (!profile) return;
     setLoading(true);
     setError(null);
@@ -163,7 +150,28 @@ export default function PostDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.id, id, isDemoId]);
+  }, [profile?.id, id]);
+
+  const isMine = !!post && !!profile && post.user_id === profile.id;
+  const lonely = isMine && post && post.likeCount === 0 && comments.filter((c) => !c.isAi).length === 0;
+
+  async function getTips() {
+    if (!post || tipsLoading) return;
+    setTipsLoading(true);
+    try {
+      const result = await engagementRescue({
+        body: post.body,
+        likes: post.likeCount,
+        comments: comments.filter((c) => !c.isAi).length,
+        audience: getAudience(),
+      });
+      setTips(result.length ? result : ["Add a question at the end — posts that ask get 3x more replies."]);
+    } catch {
+      setTips(["Add a question at the end — posts that ask get 3x more replies."]);
+    } finally {
+      setTipsLoading(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -285,13 +293,53 @@ export default function PostDetailPage() {
           {comments.reduce((a, c) => a + 1 + c.replies.length, 0)} comments
         </h2>
 
-        {isDemoId ? (
-          <div className="mt-4 rounded-xl border border-line bg-raise/40 px-4 py-3 text-xs text-mute leading-relaxed">
-            This is sample content, shown so new feeds never feel empty. Comments and replies are
-            disabled on sample posts — every real post gets full threads.
+        {/* AI rescue: own post with no engagement gets help */}
+        {lonely && !loading && (
+          <div className="mt-4 rounded-xl border border-brand/40 bg-brand-soft/50 p-4">
+            <p className="text-sm font-bold flex items-center gap-2">
+              <Sparkles className="size-4 text-brand" /> No engagement yet? Let the AI help
+            </p>
+            {tips ? (
+              <ul className="mt-2.5 space-y-1.5">
+                {tips.map((t, i) => (
+                  <li key={i} className="text-xs leading-relaxed flex gap-2">
+                    <span className="text-brand font-bold font-mono">{i + 1}.</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-mute mt-1 leading-relaxed">
+                Get 4 concrete tips to spark replies, or let anonymous members warm up the thread.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 mt-3">
+              <Button size="sm" onClick={getTips} loading={tipsLoading}>
+                <Sparkles className="size-3.5" /> {tips ? "Refresh tips" : "Get tips"}
+              </Button>
+              {isGeminiConfigured && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    post &&
+                    void generateAiReplies({
+                      postId: post.id,
+                      body: post.body,
+                      audience: getAudience(),
+                      authorHandle: profile?.handle,
+                      uid: profile?.id,
+                    })
+                  }
+                >
+                  Spark AI replies
+                </Button>
+              )}
+            </div>
           </div>
-        ) : (
-        profile && (
+        )}
+
+        {profile && (
           <div className="mt-4 space-y-3">
             {replyingTo && (
               <div className="flex items-center justify-between rounded-lg bg-brand-soft px-3 py-2 text-xs font-semibold text-brand">
@@ -327,10 +375,10 @@ export default function PostDetailPage() {
                     <Send className="size-3.5" /> Comment
                   </Button>
                 </div>
-              </div>
             </div>
           </div>
-        ))}
+        </div>
+        )}
 
         <div className="mt-5 space-y-5">
           {comments.length === 0 && !loading && (
@@ -343,7 +391,7 @@ export default function PostDetailPage() {
               <CommentRow
                 comment={c}
                 uid={profile?.id ?? ""}
-                onReply={isDemoId || c.isAi ? undefined : (pid) => setReplyingTo(pid)}
+                onReply={c.isAi ? undefined : (pid) => setReplyingTo(pid)}
                 onDelete={deleteOne}
                 replyingTo={replyingTo}
                 setReplyingTo={setReplyingTo}

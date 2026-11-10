@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Copy,
-  Gift,
-  Share2,
-  Sparkles,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { Copy, Gift, Share2, Trophy, Users } from "lucide-react";
 import { useAuth, useToast } from "@/context/AppProviders";
 import {
   ensureInviteCode,
@@ -16,9 +9,7 @@ import {
   type ReferralStats,
 } from "@/lib/referrals";
 import { timeAgo } from "@/lib/utils";
-import InstallApp from "@/components/InstallApp";
 import { Avatar, Badge, Button, Skeleton } from "@/components/ui";
-import { cn } from "@/utils/cn";
 
 function tierFor(invites: number): { label: string; tone: "neutral" | "brand" | "coral" } | null {
   if (invites >= 10) return { label: "Campus legend", tone: "coral" };
@@ -54,7 +45,6 @@ export default function InvitePage() {
   const link = code ? inviteLink(code) : "";
   const schemaMissing = stats ? !stats.available : false;
   const tier = tierFor(stats?.invites ?? 0);
-  const nextGoal = stats ? (stats.points < 50 ? 50 : stats.points < 150 ? 150 : 500) : 50;
 
   async function copyText(text: string, title: string) {
     try {
@@ -107,7 +97,7 @@ export default function InvitePage() {
         <p className="text-sm text-mute mt-0.5">
           Bring your people to OFFMUTE. Every friend who joins with your link earns you
           {" "}
-          {INVITE_POINTS} points.
+          {INVITE_POINTS} score points — instantly.
         </p>
       </div>
 
@@ -141,22 +131,11 @@ export default function InvitePage() {
             <span className="text-sm text-mute mb-1">points</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <div className="rounded-lg border border-line bg-raise/50 px-3 py-2">
-              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-mute">
-                Friends joined
-              </p>
-              <p className="font-display text-xl font-semibold mt-0.5">{stats?.invites ?? 0}</p>
-            </div>
-            <div className="rounded-lg border border-line bg-raise/50 px-3 py-2">
-              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-mute">
-                Next milestone
-              </p>
-              <p className="font-display text-xl font-semibold mt-0.5">
-                {Math.max(0, nextGoal - (stats?.points ?? 0))}
-                <span className="text-xs text-mute font-sans font-normal ml-1">pts to go</span>
-              </p>
-            </div>
+          <div className="mt-4 rounded-lg border border-line bg-raise/50 px-3 py-2">
+            <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-mute">
+              Friends joined
+            </p>
+            <p className="font-display text-xl font-semibold mt-0.5">{stats?.invites ?? 0}</p>
           </div>
         </div>
       </section>
@@ -182,13 +161,6 @@ export default function InvitePage() {
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg border border-line bg-raise/50 px-3 py-2">
-              <span className="flex-1 truncate text-xs text-mute font-mono">{link}</span>
-              <Button size="sm" variant="soft" onClick={() => copyText(link, "Invite link copied")}>
-                <Copy className="size-3.5" /> Link
-              </Button>
-            </div>
-
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={shareInvite}>
                 <Share2 className="size-4" /> Share
@@ -200,12 +172,8 @@ export default function InvitePage() {
               >
                 WhatsApp
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copyText(code, "Invite code copied")}
-              >
-                <Sparkles className="size-4" /> Copy code
+              <Button size="sm" variant="outline" onClick={() => copyText(link, "Invite link copied")}>
+                <Copy className="size-4" /> Copy link
               </Button>
             </div>
           </div>
@@ -230,7 +198,7 @@ export default function InvitePage() {
           {[
             { n: 1, title: "Share your link", desc: "Send it to a friend on WhatsApp, X or anywhere else." },
             { n: 2, title: "They sign up", desc: "Their new account is linked to you automatically." },
-            { n: 3, title: "Earn points", desc: `${INVITE_POINTS} points per successful signup. Climb the tiers.` },
+            { n: 3, title: "Earn points", desc: `${INVITE_POINTS} score points per signup — it lands on your profile score instantly.` },
           ].map((step) => (
             <li key={step.n} className="flex gap-3">
               <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-soft border border-brand/30 text-[11px] font-bold font-mono text-brand">
@@ -250,7 +218,7 @@ export default function InvitePage() {
           <Users className="size-4 text-brand" /> Recent invites
         </h2>
         {!stats || stats.recent.length === 0 ? (
-          <div className={cn("rounded-lg border border-dashed border-line px-4 py-6 text-center")}>
+          <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
             <p className="text-sm font-semibold">No invites yet</p>
             <p className="text-xs text-mute mt-1">Share your link and your first friend shows up here.</p>
           </div>
@@ -272,8 +240,6 @@ export default function InvitePage() {
           </ul>
         )}
       </section>
-
-      <InstallApp />
     </div>
   );
 }

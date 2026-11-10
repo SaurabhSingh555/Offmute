@@ -202,6 +202,39 @@ export async function fetchFeed(
   };
 }
 
+/* ----------------------------- Recent activity ---------------------------- */
+
+export interface RecentActivityItem {
+  id: string;
+  handle: string;
+  communityName: string | null;
+  communitySlug: string | null;
+  categorySlug: string | null;
+  created_at: string;
+  preview: string;
+}
+
+/** Latest posts across OFFMUTE, for the live "just posted" ticker. */
+export async function fetchRecentActivity(limit = 12): Promise<RecentActivityItem[]> {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(
+      "id, body, created_at, community:communities(name, slug), category:categories(slug), profile:profiles!posts_user_id_fkey(handle)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    handle: r.profile?.handle ?? "someone",
+    communityName: r.community?.name ?? null,
+    communitySlug: r.community?.slug ?? null,
+    categorySlug: r.category?.slug ?? null,
+    created_at: r.created_at,
+    preview: String(r.body ?? "").replace(/\s+/g, " ").trim().slice(0, 80),
+  }));
+}
+
 let relCache = new Map<string, { follows: { followee_id: string }[]; members: { community_id: string }[] }>();
 
 export async function fetchMyRelationships(uid: string) {

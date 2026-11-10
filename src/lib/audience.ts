@@ -236,9 +236,7 @@ const STUDENT_TABS: FeedTabDef[] = [
   { id: "trending", label: "Trending" },
   { id: "cat-campus", label: "Campus Life", categorySlug: "campus-life" },
   { id: "cat-exams", label: "Exams & Placements", categorySlug: "exams-placements" },
-  { id: "cat-internships", label: "Internships", categorySlug: "internships" },
-  { id: "cat-study", label: "Study Hacks", categorySlug: "study-hacks" },
-  { id: "cat-confessions", label: "Campus Confessions", categorySlug: "campus-confessions" },
+  { id: "cat-confessions", label: "Confessions", categorySlug: "campus-confessions" },
 ];
 
 export function getFeedTabs(audience: Audience | null): FeedTabDef[] {
