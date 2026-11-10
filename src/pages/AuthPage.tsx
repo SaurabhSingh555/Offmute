@@ -1,13 +1,28 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CheckCircle2, KeyRound, MailCheck } from "lucide-react";
+import { CheckCircle2, KeyRound, MailCheck, MailWarning } from "lucide-react";
 import { useAuth } from "@/context/AppProviders";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { Button, Field, Input, Logo, SetupScreen } from "@/components/ui";
 import { cn } from "@/utils/cn";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type VerifyFlow = "checking" | "verified" | "link-error" | null;
+
+function cleanVerifyParams() {
+  try {
+    const url = new URL(window.location.href);
+    url.hash = "";
+    for (const key of ["code", "error", "error_description", "error_code"]) {
+      url.searchParams.delete(key);
+    }
+    window.history.replaceState(null, "", url.pathname + url.search);
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function AuthPage() {
   const { signIn, signUp, resendConfirmation, resetPassword, user, loading } = useAuth();
@@ -29,16 +44,19 @@ export default function AuthPage() {
   const [forgotBusy, setForgotBusy] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(false);
+  const [verifyFlow, setVerifyFlow] = useState<VerifyFlow>(null);
 
   const next =
     (location.state as { from?: string } | null)?.from ?? params.get("next") ?? "";
   const resetDone = params.get("reset") === "1";
   const justConfirmed = params.get("confirmed") === "1";
+  const verifying = justConfirmed && isSupabaseConfigured;
   const isFileProtocol =
     typeof window !== "undefined" && window.location.protocol === "file:";
 
   /* Supabase puts expiry/invalid-link errors in the URL hash (or query). */
   useEffect(() => {
+    if (justConfirmed) return;
     const hash = window.location.hash.replace(/^#/, "");
     const hashParams = new URLSearchParams(hash);
     const message =
@@ -54,22 +72,59 @@ export default function AuthPage() {
         window.location.pathname + window.location.search
       );
     }
-  }, [params]);
+  }, [params, justConfirmed]);
+
+  /* Email verification redirect: resolve to success / link-error views. */
+  useEffect(() => {
+    if (!verifying || loading || verifyFlow) return;
+    (async () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      const hashParams = new URLSearchParams(hash);
+      const message =
+        hashParams.get("error_description") ??
+        hashParams.get("error") ??
+        params.get("error_description") ??
+        params.get("error");
+      cleanVerifyParams();
+      if (message) {
+        setError(message.replace(/\+/g, " "));
+        setVerifyFlow("link-error");
+        return;
+      }
+      if (user) {
+        setVerifyFlow("verified");
+        return;
+      }
+      const code = params.get("code");
+      if (code) {
+        setVerifyFlow("checking");
+        await supabase.auth.exchangeCodeForSession(code);
+        setVerifyFlow("verified");
+        return;
+      }
+      setVerifyFlow("verified");
+    })();
+  }, [verifying, loading, verifyFlow, user, params]);
 
   useEffect(() => {
-    if (!justConfirmed || loading || user) return;
-    setMode("in");
-    setNotice({
-      title: "Email confirmed",
-      desc: "Your email is verified. Sign in with your password.",
-    });
-  }, [justConfirmed, loading, user]);
-
-  useEffect(() => {
+    if (verifying) return;
     if (!loading && user) {
       navigate(next ? `/${next}` : "/feed", { replace: true });
     }
-  }, [user, loading, next, navigate]);
+  }, [user, loading, next, navigate, verifying]);
+
+  function goLogin() {
+    setVerifyFlow(null);
+    setError(null);
+    setNotice(null);
+    setPendingConfirm(false);
+    setMode("in");
+    navigate("/auth", { replace: true });
+  }
+
+  function enterApp() {
+    navigate(next ? `/${next}` : "/feed", { replace: true });
+  }
 
   function afterAuth() {
     let onboarded = "1";
@@ -173,6 +228,114 @@ export default function AuthPage() {
           <div className="border border-line bg-surface p-2 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)]">
             <SetupScreen />
           </div>
+        ) : verifyFlow === "link-error" ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="border border-line bg-surface p-5 sm:p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)] relative"
+          >
+            <div className="absolute top-0 right-0 bg-bad text-black font-mono text-[9px] px-2 py-0.5 font-bold uppercase tracking-widest">
+              Link Expired
+            </div>
+            <div className="flex flex-col items-center gap-2.5 pt-3 text-center">
+              <MailWarning className="size-10 text-bad" />
+              <h2 className="text-lg font-black uppercase tracking-tight">
+                Verification link expired
+              </h2>
+              <p className="text-xs text-mute font-mono leading-relaxed max-w-xs">
+                This verification link was already used or has expired. If your email
+                is already verified, just sign in as usual — otherwise send yourself a
+                fresh link below.
+              </p>
+            </div>
+            <div className="mt-4 space-y-2.5">
+              <Field label="Email">
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="h-8 text-xs"
+                />
+              </Field>
+              {error && (
+                <p className="text-[11px] font-mono text-bad bg-bad/10 border border-bad/30 px-2.5 py-1.5 break-words uppercase tracking-tight">
+                  [ ERR ] {error}
+                </p>
+              )}
+              {notice && (
+                <div className="flex items-start gap-2 border border-ok/30 bg-ok/10 px-3 py-2 text-xs">
+                  <CheckCircle2 className="text-ok size-4 shrink-0 mt-0.5" />
+                  <p>
+                    <b>{notice.title}</b>
+                    <span className="block text-[10px] text-mute mt-0.5 font-mono">{notice.desc}</span>
+                  </p>
+                </div>
+              )}
+              <Button
+                fullWidth
+                size="sm"
+                onClick={resend}
+                loading={resendBusy}
+                className="h-8 text-[10px]"
+              >
+                Resend verification email
+              </Button>
+              <button
+                onClick={goLogin}
+                className="w-full text-center text-[10px] font-mono text-mute hover:text-brand transition-colors uppercase tracking-wider"
+              >
+                Back to login
+              </button>
+            </div>
+          </motion.div>
+        ) : verifyFlow === "verified" ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="border border-line bg-surface p-5 sm:p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)] relative"
+          >
+            <div className="absolute top-0 right-0 bg-ok text-black font-mono text-[9px] px-2 py-0.5 font-bold uppercase tracking-widest">
+              Email Verified
+            </div>
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <CheckCircle2 className="size-12 text-ok" />
+              <h2 className="text-lg font-black uppercase tracking-tight">
+                Email Verified Successfully!
+              </h2>
+              <p className="text-xs text-mute font-mono leading-relaxed max-w-xs">
+                {user
+                  ? "Your email address has been verified successfully. You're signed in and ready to go."
+                  : "Your email address has been verified successfully. You can now log in to your OFFMUTE account."}
+              </p>
+              <Button fullWidth size="md" className="mt-2" onClick={user ? enterApp : goLogin}>
+                {user ? "Continue to OFFMUTE" : "Continue to Login"}
+              </Button>
+            </div>
+          </motion.div>
+        ) : verifying ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="border border-line bg-surface p-5 sm:p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)] relative"
+          >
+            <div className="absolute top-0 right-0 bg-brand text-black font-mono text-[9px] px-2 py-0.5 font-bold uppercase tracking-widest">
+              Verifying
+            </div>
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <MailCheck className="size-10 text-brand animate-pulse" />
+              <p className="text-sm font-bold font-mono uppercase tracking-wider">
+                Verifying your email…
+              </p>
+              <p className="text-[10px] text-mute font-mono">
+                Hang tight while we confirm your verification link.
+              </p>
+            </div>
+          </motion.div>
         ) : (
           <motion.div
             initial={{ opacity: 0, y: 14 }}
